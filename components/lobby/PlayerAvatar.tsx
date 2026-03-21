@@ -4,7 +4,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { NPC_DEFS } from './NpcBoats';
 
-const WALK_SPEED = 25;
+const WALK_SPEED = 8;
 const TURN_SPEED = 2.5;
 const INTERACT_RADIUS = 8;
 

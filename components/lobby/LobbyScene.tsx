@@ -10,6 +10,7 @@ import { NPC_DEFS, NpcBoat } from './NpcBoats';
 import PlayerAvatar from './PlayerAvatar';
 import LobbyDock from './LobbyDock';
 import LobbyHUD from './LobbyHUD';
+import MobileControls from '@/components/game/MobileControls';
 
 export default function LobbyScene() {
   const [nearNpcId, setNearNpcId] = useState<string | null>(null);
@@ -62,6 +63,10 @@ export default function LobbyScene() {
 
       {/* 2D HUD overlay */}
       <LobbyHUD nearNpcId={nearNpcId} />
+      <MobileControls
+        keys={keys}
+        onInteract={() => window.dispatchEvent(new CustomEvent('lobby-interact'))}
+      />
     </div>
   );
 }

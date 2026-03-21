@@ -11,6 +11,7 @@ import BoatMesh from '@/components/BoatMesh';
 import GameHUD from './GameHUD';
 import EndScreen from './EndScreen';
 import PlayerController from './PlayerController';
+import MobileControls from './MobileControls';
 import { createAIBoat, updateAI, AIBoat } from '@/lib/aiBoat';
 import { Projectile, updateProjectiles, spawnExplosion } from '@/lib/projectiles';
 import { ScoreManager } from '@/lib/scoreManager';
@@ -240,6 +241,7 @@ export default function GameScene() {
         playerWorldPos={playerPos}
         onReturnLobby={handleReturnLobby}
       />
+      <MobileControls keys={keys} />
 
       {endState && (
         <EndScreen

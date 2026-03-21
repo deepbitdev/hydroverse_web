@@ -13,6 +13,7 @@ interface GameHUDProps {
 export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: GameHUDProps) {
   const { player, matchTimer, settings, killFeed, matchEnded, matchRunning } = useGameStore();
   const minimapRef = useRef<HTMLCanvasElement>(null);
+  const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
   const mins = Math.floor(matchTimer / 60);
   const secs = Math.floor(matchTimer % 60);
@@ -222,22 +223,24 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
         }} />
       )}
 
-      {/* ── Controls hint ── */}
-      <div style={{
-        position: 'absolute', top: 72, left: 18, fontSize: 9,
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 20px',
-        color: 'rgba(255,255,255,0.25)',
-      }}>
-        {[
-          ['W/S','THROTTLE'], ['A/D','STEER'], ['SPACE','FIRE'],
-          ['SHIFT','BOOST'], ['Q/E','WEAPON'], ['TAB','SCORES'],
-        ].map(([k, v]) => (
-          <span key={k}>
-            <span style={{ background: 'rgba(0,200,255,0.08)', border: '1px solid rgba(0,200,255,0.2)', padding: '1px 5px', color: 'var(--cyan)', marginRight: 5, fontSize: 8, borderRadius: 2 }}>{k}</span>
-            {v}
-          </span>
-        ))}
-      </div>
+      {/* ── Controls hint (keyboard only) ── */}
+      {!isTouch && (
+        <div style={{
+          position: 'absolute', top: 72, left: 18, fontSize: 9,
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 20px',
+          color: 'rgba(255,255,255,0.25)',
+        }}>
+          {[
+            ['W/S','THROTTLE'], ['A/D','STEER'], ['SPACE','FIRE'],
+            ['SHIFT','BOOST'], ['Q/E','WEAPON'], ['TAB','SCORES'],
+          ].map(([k, v]) => (
+            <span key={k}>
+              <span style={{ background: 'rgba(0,200,255,0.08)', border: '1px solid rgba(0,200,255,0.2)', padding: '1px 5px', color: 'var(--cyan)', marginRight: 5, fontSize: 8, borderRadius: 2 }}>{k}</span>
+              {v}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* ── Return to lobby ── */}
       <button

@@ -1,0 +1,50 @@
+export type PlayerId = string;
+
+export interface PlayerScore {
+  id: PlayerId;
+  name: string;
+  kills: number;
+  deaths: number;
+  score: number;
+  team?: 'red' | 'blue';
+}
+
+export interface MatchResult {
+  winner: string;
+  team?: string;
+}
+
+class ScoreManagerClass {
+  players: Record<PlayerId, PlayerScore> = {};
+  teamScores = { red: 0, blue: 0 };
+
+  reset(names: { id: PlayerId; name: string; team?: 'red' | 'blue' }[]) {
+    this.players = {};
+    this.teamScores = { red: 0, blue: 0 };
+    names.forEach(({ id, name, team }) => {
+      this.players[id] = { id, name, kills: 0, deaths: 0, score: 0, team };
+    });
+  }
+
+  onKill(killerId: PlayerId, victimId: PlayerId, mode: string): MatchResult | null {
+    if (this.players[killerId]) {
+      this.players[killerId].kills++;
+      this.players[killerId].score += mode === 'TDM' ? 1 : 2;
+      if (this.players[killerId].team) {
+        this.teamScores[this.players[killerId].team!]++;
+      }
+    }
+    if (this.players[victimId]) this.players[victimId].deaths++;
+    return null;
+  }
+
+  onDeath(id: PlayerId) {
+    if (this.players[id]) this.players[id].deaths++;
+  }
+
+  getSorted(): PlayerScore[] {
+    return Object.values(this.players).sort((a, b) => b.score - a.score);
+  }
+}
+
+export const ScoreManager = new ScoreManagerClass();

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { NPC_DEFS, NpcDef } from './NpcBoats';
 import type { GameMode } from '@/store/gameStore';
+import OnlinePanel from './OnlinePanel';
 
 interface LobbyHUDProps {
   nearNpcId: string | null;
@@ -12,6 +13,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
   const { setSettings, startMatch, settings } = useGameStore();
   const [dialogueIdx, setDialogueIdx] = useState(0);
   const [showPanel, setShowPanel] = useState(false);
+  const [showOnline, setShowOnline] = useState(false);
   const [typedText, setTypedText] = useState('');
   const prevNpcId = useRef<string | null>(null);
   const typeTimer = useRef<NodeJS.Timeout | null>(null);
@@ -58,6 +60,8 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
 
   return (
     <>
+      {showOnline && <OnlinePanel onClose={() => setShowOnline(false)} />}
+
       {/* Bottom controls hint */}
       <div style={{
         position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
@@ -186,12 +190,28 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
       {/* Top logo */}
       <div style={{
         position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)',
-        textAlign: 'center', pointerEvents: 'none', zIndex: 100,
+        textAlign: 'center', zIndex: 100,
       }}>
-        <div className="logo-text" style={{ fontSize: 32, letterSpacing: 12 }}>HYDROVERSE</div>
-        <div style={{ fontSize: 9, letterSpacing: 6, color: 'rgba(0,200,255,0.35)', marginTop: 2 }}>
+        <div className="logo-text" style={{ fontSize: 32, letterSpacing: 12, pointerEvents: 'none' }}>HYDROVERSE</div>
+        <div style={{ fontSize: 9, letterSpacing: 6, color: 'rgba(0,200,255,0.35)', marginTop: 2, pointerEvents: 'none' }}>
           APPROACH A VESSEL TO SELECT GAME MODE
         </div>
+        <button
+          onClick={() => setShowOnline(true)}
+          style={{
+            marginTop: 12,
+            fontFamily: "'Rajdhani',sans-serif", fontWeight: 700,
+            fontSize: 11, letterSpacing: 5,
+            padding: '7px 24px',
+            background: 'rgba(255,80,100,0.12)',
+            border: '1px solid rgba(255,80,100,0.5)',
+            color: '#ff5064',
+            cursor: 'pointer',
+            clipPath: 'polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)',
+          }}
+        >
+          ⚔ PLAY ONLINE (PvP)
+        </button>
       </div>
 
       {/* Proximity indicators around screen edges */}

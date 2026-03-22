@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
-import { connectSocket, disconnectSocket } from '@/lib/socket';
+import { connectSocket, disconnectSocket, isSocketConfigured } from '@/lib/socket';
 import type { RoomJoinedPayload } from '@/lib/multiplayer';
 
 interface OnlinePanelProps {
@@ -21,13 +21,26 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
 
   // Connect socket when panel opens, clean up on close
   useEffect(() => {
+    if (!isSocketConfigured()) {
+      setError(
+        'Online PvP needs a game server.\n' +
+        'Set NEXT_PUBLIC_SOCKET_URL to your Socket.io server URL, or run locally with npm run dev.'
+      );
+      return;
+    }
+
     const socket = connectSocket();
+    if (!socket) return; // isSocketConfigured() already handled above, safety guard
+
+    socket.on('connect_error', () => {
+      setError('Could not reach the game server. Check your connection or server URL.');
+      disconnectSocket();
+    });
 
     socket.on('room:joined', (payload: RoomJoinedPayload) => {
       setRoomCode(payload.roomCode);
       setMyId(payload.playerId);
       setError('');
-      // Seed remote players from existing occupants
       payload.players.forEach((p) => setRemotePlayer(p.id, p));
       setPlayers(payload.players.map((p) => ({ id: p.id, name: p.name })));
       setView('waiting');
@@ -47,6 +60,7 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
     });
 
     return () => {
+      socket.off('connect_error');
       socket.off('room:joined');
       socket.off('room:player_joined');
       socket.off('room:player_left');
@@ -58,6 +72,7 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
     if (!playerName.trim()) { setError('Enter a pilot name first.'); return; }
     setError('');
     const socket = connectSocket();
+    if (!socket) return;
     socket.emit('room:create', { name: playerName.trim() });
   };
 
@@ -66,6 +81,7 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
     if (joinCode.trim().length !== 4) { setError('Room code must be 4 characters.'); return; }
     setError('');
     const socket = connectSocket();
+    if (!socket) return;
     socket.emit('room:join', { roomCode: joinCode.trim().toUpperCase(), name: playerName.trim() });
   };
 
@@ -170,7 +186,7 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
           <button style={{ ...btnSecondary, width: '100%' }} onClick={onClose}>
             CANCEL
           </button>
-          {error && <div style={{ marginTop: 12, color: '#ff3355', fontSize: 11, letterSpacing: 2 }}>{error}</div>}
+          {error && <ErrorBox message={error} />}
         </div>
       </div>
     );
@@ -200,7 +216,7 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
               CONNECT
             </button>
           </div>
-          {error && <div style={{ marginTop: 12, color: '#ff3355', fontSize: 11, letterSpacing: 2 }}>{error}</div>}
+          {error && <ErrorBox message={error} />}
         </div>
       </div>
     );
@@ -243,6 +259,22 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
           Any player can launch — opponents join mid-match too
         </div>
       </div>
+    </div>
+  );
+}
+
+function ErrorBox({ message }: { message: string }) {
+  return (
+    <div style={{
+      marginTop: 14, padding: '10px 14px',
+      background: 'rgba(255,50,80,0.08)',
+      border: '1px solid rgba(255,50,80,0.4)',
+    }}>
+      {message.split('\n').map((line, i) => (
+        <div key={i} style={{ color: '#ff5568', fontSize: 11, letterSpacing: 1, lineHeight: 1.7 }}>
+          {line}
+        </div>
+      ))}
     </div>
   );
 }

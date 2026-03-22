@@ -1,26 +1,49 @@
 import { io, Socket } from 'socket.io-client';
 
-// In production (Vercel) set NEXT_PUBLIC_SOCKET_URL to your Railway/Render server URL.
-// Locally, leave it unset — the custom server.js handles both Next.js and Socket.io on
-// the same port so a relative connection works fine.
-const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL ||
-  (typeof window !== 'undefined' ? window.location.origin : '');
+// Resolved once at module load (build-time inlined by Next.js for NEXT_PUBLIC_ vars)
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? '';
+
+/**
+ * True only when a real socket server is reachable:
+ *  - Explicit env var set (production / staging)
+ *  - Running on localhost (custom server.js handles both Next + Socket.io)
+ */
+export function isSocketConfigured(): boolean {
+  if (SOCKET_URL) return true;
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  return h === 'localhost' || h === '127.0.0.1';
+}
 
 let _socket: Socket | null = null;
 
+function resolveUrl(): string {
+  if (SOCKET_URL) return SOCKET_URL;
+  // Only reached on localhost — same-origin custom server
+  if (typeof window !== 'undefined') return window.location.origin;
+  return '';
+}
+
 export function getSocket(): Socket {
   if (!_socket) {
-    _socket = io(SOCKET_URL, {
+    _socket = io(resolveUrl(), {
       autoConnect: false,
-      // Try WebSocket first, fall back to polling if the host doesn't support it
       transports: ['websocket', 'polling'],
+      reconnectionAttempts: 3,
+      reconnectionDelay: 1500,
+      timeout: 6000,
     });
   }
   return _socket;
 }
 
-export function connectSocket(): Socket {
+/**
+ * Connect and return the socket.
+ * Returns null (no-op) when no server is configured — callers don't need to
+ * guard with isSocketConfigured() themselves.
+ */
+export function connectSocket(): Socket | null {
+  if (!isSocketConfigured()) return null;
   const s = getSocket();
   if (!s.connected) s.connect();
   return s;

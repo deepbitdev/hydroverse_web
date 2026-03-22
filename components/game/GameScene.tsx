@@ -170,14 +170,14 @@ function RemoteShootReceiver({
   useEffect(() => {
     if (!isOnline) return;
     const socket = connectSocket();
+    if (!socket) return;
 
     const handleShoot = (data: ShootPayload) => {
       const origin = new THREE.Vector3(data.x, 0.5, data.z);
       const dir    = new THREE.Vector3(data.dirX, 0, data.dirZ).normalize();
       const weapon = WEAPONS.find((w) => w.id === data.weaponId) ?? WEAPONS[0];
-      const proj   = createProjectile(scene, origin, dir, false /* not local player */, weapon);
-      // Tag as remote visual only — won't damage local player (handled via game:hit relay)
-      proj.damage = 0;
+      const proj   = createProjectile(scene, origin, dir, false, weapon);
+      proj.damage = 0; // visual only — damage handled via game:hit relay
       projectilesRef.current.push(proj);
     };
 
@@ -247,6 +247,7 @@ export default function GameScene() {
     if (!isOnline) return;
 
     const socket = connectSocket();
+    if (!socket) return;
 
     // Remote position/health updates
     socket.on('game:state', (data: GameStatePayload) => {
@@ -322,7 +323,7 @@ export default function GameScene() {
         syncAccum.current = 0;
         const boat = playerBoatRef.current;
         const socket = connectSocket();
-        socket.emit('game:state', {
+        socket?.emit('game:state', {
           x: boat.position.x,
           z: boat.position.z,
           ry: boat.rotation.y,
@@ -349,7 +350,7 @@ export default function GameScene() {
   ) => {
     if (!isOnline) return;
     const socket = connectSocket();
-    socket.emit('game:shoot', {
+    socket?.emit('game:shoot', {
       x: origin.x, z: origin.z,
       dirX: dir.x, dirZ: dir.z,
       weaponId, damage, projectileSpeed,
@@ -372,6 +373,7 @@ export default function GameScene() {
   const remoteHitCheck = useCallback((proj: Projectile) => {
     if (!isOnline || !proj.isPlayer) return;
     const socket = connectSocket();
+    if (!socket) return;
     Object.entries(remotePlayers).forEach(([id, rp]) => {
       if (rp.dead) return;
       const rpPos = new THREE.Vector3(rp.x, 0.25, rp.z);

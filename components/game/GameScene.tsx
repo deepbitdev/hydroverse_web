@@ -13,6 +13,8 @@ import EndScreen from './EndScreen';
 import PlayerController from './PlayerController';
 import MobileControls from './MobileControls';
 import RemotePlayer from './RemotePlayer';
+import PowerupManager from './PowerupManager';
+import { Html } from '@react-three/drei';
 import { createAIBoat, updateAI, AIBoat } from '@/lib/aiBoat';
 import { Projectile, updateProjectiles, spawnExplosion } from '@/lib/projectiles';
 import { createProjectile } from '@/lib/projectiles';
@@ -22,6 +24,66 @@ import { WEAPONS } from '@/lib/weapons';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
 import type { GameStatePayload, ShootPayload, HitPayload, KillPayload } from '@/lib/multiplayer';
 
+// ── Label that tracks a single AI boat mesh ──────────────────
+function AIBoatLabel({ boat }: { boat: AIBoat }) {
+  const groupRef = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    groupRef.current.position.copy(boat.mesh.position);
+    groupRef.current.position.y += 3.8;
+    groupRef.current.visible = boat.alive;
+  });
+
+  return (
+    <group ref={groupRef}>
+      <Html center distanceFactor={8}>
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          pointerEvents: 'none', userSelect: 'none',
+        }}>
+          <div style={{
+            fontFamily: "'Share Tech Mono', monospace",
+            fontSize: 18, letterSpacing: 3, fontWeight: 700,
+            color: '#ff9933',
+            background: 'rgba(0,0,0,0.75)',
+            border: '1px solid rgba(255,150,50,0.7)',
+            padding: '4px 14px',
+            whiteSpace: 'nowrap',
+            textShadow: '0 0 8px rgba(255,150,50,0.8)',
+          }}>
+            {boat.name}
+          </div>
+          <div style={{
+            fontSize: 13, letterSpacing: 4,
+            color: '#ff9933',
+            background: 'rgba(0,0,0,0.65)',
+            border: '1px solid rgba(255,150,50,0.4)',
+            borderTop: 'none',
+            padding: '2px 10px',
+            whiteSpace: 'nowrap',
+          }}>
+            ENEMY (AI)
+          </div>
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+// ── Renders labels for all AI boats ──────────────────────────
+function AIBoatLabels({ aiBoatsRef }: { aiBoatsRef: React.MutableRefObject<AIBoat[]> }) {
+  // Snapshot the list once on mount; new boats won't appear mid-match
+  const boats = aiBoatsRef.current;
+  return (
+    <>
+      {boats.map((boat) => (
+        <AIBoatLabel key={boat.id} boat={boat} />
+      ))}
+    </>
+  );
+}
+
 // ── Inner scene that has access to R3F context ──────────────
 function GameWorld({
   playerBoatRef,
@@ -30,6 +92,7 @@ function GameWorld({
   ripplesRef,
   keys,
   onPositionUpdate,
+  onMatchEnd,
 }: {
   playerBoatRef: React.RefObject<THREE.Group>;
   projectilesRef: React.MutableRefObject<Projectile[]>;
@@ -37,9 +100,13 @@ function GameWorld({
   ripplesRef: React.MutableRefObject<{ x: number; z: number; age: number }[]>;
   keys: React.MutableRefObject<Record<string, boolean>>;
   onPositionUpdate: (pos: { x: number; z: number }) => void;
+  onMatchEnd: () => void;
 }) {
   const { scene } = useThree();
   const { settings, player, setPlayer, addKill, tickTimer, matchRunning } = useGameStore();
+  const endFired = useRef(false);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   useFrame((_, dt) => {
     if (!matchRunning) return;
@@ -73,12 +140,14 @@ function GameWorld({
               spawnExplosion(scene, boat.mesh.position.clone(), 45, 0xff3300);
               SFX.explosion(1.2);
               addKill(`⊕ ${boat.name} destroyed`, '');
+              ScoreManager.onKill('player', boat.id, settingsRef.current.mode);
             }
           }
         });
       } else {
         // vs player
-        if (!player.dead && ppos.distanceTo(playerPos) < 2.8) {
+        const shielded = useGameStore.getState().player.shielded;
+        if (!player.dead && !shielded && ppos.distanceTo(playerPos) < 2.8) {
           const newHealth = Math.max(0, player.health - p.damage);
           setPlayer({ health: newHealth });
           SFX.hit();
@@ -90,6 +159,7 @@ function GameWorld({
             SFX.explosion(1.8);
             if (playerBoatRef.current) playerBoatRef.current.visible = false;
             addKill('☠ Your vessel was destroyed', 'red');
+            ScoreManager.onDeath('player');
             setTimeout(() => {
               if (playerBoatRef.current) playerBoatRef.current.visible = true;
             }, 5000);
@@ -127,6 +197,12 @@ function GameWorld({
     if (ripplesRef.current.length > 8) ripplesRef.current = ripplesRef.current.slice(-8);
 
     tickTimer(dt);
+
+    // ── Match end when timer hits 0 ──────────────────────────
+    if (useGameStore.getState().matchTimer === 0 && !endFired.current) {
+      endFired.current = true;
+      onMatchEnd();
+    }
   });
 
   return (
@@ -191,7 +267,7 @@ function RemoteShootReceiver({
 // ── Top-level game scene ─────────────────────────────────────
 export default function GameScene() {
   const {
-    settings, setScreen, startMatch, matchRunning, matchEnded,
+    settings, setScreen, startMatch, endMatchAction, matchRunning, matchEnded,
     isOnline, roomCode, playerId, playerName,
     remotePlayers, setRemotePlayer, removeRemotePlayer,
     player, setPlayer, addKill,
@@ -271,7 +347,8 @@ export default function GameScene() {
 
     // We got hit by a remote player
     socket.on('game:hit', ({ fromId, damage }: HitPayload) => {
-      if (player.dead) return;
+      const state = useGameStore.getState();
+      if (state.player.dead || state.player.shielded) return;
       const newHealth = Math.max(0, player.health - damage);
       setPlayer({ health: newHealth });
       SFX.hit();
@@ -385,6 +462,17 @@ export default function GameScene() {
     });
   }, [isOnline, remotePlayers, addKill]);
 
+  const handleMatchEnd = useCallback(() => {
+    endMatchAction();
+    const sorted = ScoreManager.getSorted();
+    const top = sorted[0];
+    if (!top) return;
+    const isPlayer  = top.id === 'player';
+    const winner    = isPlayer ? 'VICTORY' : top.name;
+    const color     = isPlayer ? '#00e8d8' : '#ff4466';
+    setEndState({ winner, color });
+  }, [endMatchAction]);
+
   const handleReturnLobby = useCallback(() => { setScreen('lobby'); }, [setScreen]);
   const handleRematch     = useCallback(() => { startMatch(); }, [startMatch]);
 
@@ -404,8 +492,10 @@ export default function GameScene() {
           ripplesRef={ripplesRef}
           keys={keys}
           onPositionUpdate={setPlayerPos}
+          onMatchEnd={handleMatchEnd}
         />
         <AIRenderer aiBoatsRef={aiBoatsRef} />
+        <AIBoatLabels aiBoatsRef={aiBoatsRef} />
         <PlayerController
           boatRef={playerBoatRef}
           projectiles={projectilesRef}
@@ -429,6 +519,9 @@ export default function GameScene() {
 
         {/* Receive remote shoot events and spawn visual projectiles */}
         <RemoteShootReceiver projectilesRef={projectilesRef} />
+
+        {/* Power-up spawning and collection */}
+        <PowerupManager playerRef={playerBoatRef} />
       </Canvas>
 
       <GameHUD

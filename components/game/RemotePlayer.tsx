@@ -1,6 +1,7 @@
 'use client';
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { remotePlayerColor } from '@/lib/multiplayer';
 
@@ -63,8 +64,42 @@ export default function RemotePlayer({ id, x, z, ry, dead, name }: RemotePlayerP
         <boxGeometry args={[2.3, 0.08, 5.3]} />
         <meshBasicMaterial color={accent} />
       </mesh>
-      {/* Name tag — simple point light as marker */}
+      {/* Point light marker */}
       <pointLight color={accent} intensity={1.5} distance={6} position={[0, 2, 0]} />
+
+      {/* Enemy label */}
+      {!dead && (
+        <Html center distanceFactor={8} position={[0, 3.8, 0]}>
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            pointerEvents: 'none', userSelect: 'none',
+          }}>
+            <div style={{
+              fontFamily: "'Share Tech Mono', monospace",
+              fontSize: 18, letterSpacing: 3, fontWeight: 700,
+              color: '#ff3355',
+              background: 'rgba(0,0,0,0.75)',
+              border: '1px solid rgba(255,50,80,0.7)',
+              padding: '4px 14px',
+              whiteSpace: 'nowrap',
+              textShadow: '0 0 8px rgba(255,50,80,0.8)',
+            }}>
+              {name}
+            </div>
+            <div style={{
+              fontSize: 13, letterSpacing: 4,
+              color: '#ff3355',
+              background: 'rgba(0,0,0,0.65)',
+              border: '1px solid rgba(255,50,80,0.4)',
+              borderTop: 'none',
+              padding: '2px 10px',
+              whiteSpace: 'nowrap',
+            }}>
+              ENEMY
+            </div>
+          </div>
+        </Html>
+      )}
     </group>
   );
 }

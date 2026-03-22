@@ -14,6 +14,14 @@ export interface Settings {
   timeLimit: number;
 }
 
+export interface ActivePowerup {
+  type: string;
+  expiresAt: number; // Date.now() ms
+  label: string;
+  icon: string;
+  cssColor: string;
+}
+
 export interface PlayerState {
   health: number;
   ammo: number;
@@ -22,6 +30,9 @@ export interface PlayerState {
   dead: boolean;
   reloading: boolean;
   weaponIdx: number;
+  shielded: boolean;
+  weaponBoost: boolean; // damage + fireRate multiplier
+  activePowerups: ActivePowerup[];
 }
 
 export interface GameState {
@@ -52,6 +63,9 @@ export interface GameState {
   addKill: (msg: string, cls?: string) => void;
   removeKill: (id: number) => void;
 
+  addActivePowerup: (p: ActivePowerup) => void;
+  tickPowerups: () => void;
+
   // multiplayer actions
   setOnline: (isOnline: boolean, roomCode?: string, playerId?: string) => void;
   setPlayerName: (name: string) => void;
@@ -63,6 +77,7 @@ export interface GameState {
 const DEFAULT_PLAYER: PlayerState = {
   health: 100, ammo: 100, boost: 100,
   speed: 0, dead: false, reloading: false, weaponIdx: 0,
+  shielded: false, weaponBoost: false, activePowerups: [],
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -139,6 +154,24 @@ export const useGameStore = create<GameState>((set, get) => ({
   removeKill: (id) => set((state) => ({
     killFeed: state.killFeed.filter((k) => k.id !== id),
   })),
+
+  addActivePowerup: (p) => set((state) => {
+    const activePowerups = [
+      ...state.player.activePowerups.filter((a) => a.type !== p.type),
+      p,
+    ];
+    const shielded = activePowerups.some((a) => a.type === 'shield');
+    const weaponBoost = activePowerups.some((a) => a.type === 'weaponUpgrade');
+    return { player: { ...state.player, activePowerups, shielded, weaponBoost } };
+  }),
+
+  tickPowerups: () => set((state) => {
+    const now = Date.now();
+    const activePowerups = state.player.activePowerups.filter((a) => a.expiresAt > now);
+    const shielded = activePowerups.some((a) => a.type === 'shield');
+    const weaponBoost = activePowerups.some((a) => a.type === 'weaponUpgrade');
+    return { player: { ...state.player, activePowerups, shielded, weaponBoost } };
+  }),
 
   // ── Multiplayer actions ──────────────────────────────────
   setOnline: (isOnline, roomCode = null, playerId = null) =>

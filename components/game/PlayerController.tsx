@@ -23,6 +23,8 @@ interface PlayerControllerProps {
 export default function PlayerController({ boatRef, projectiles, onPositionUpdate, keys }: PlayerControllerProps) {
   const { camera } = useThree();
   const { player, setPlayer, settings, addKill } = useGameStore();
+  const WEAPON_BOOST_DMG  = 1.75;
+  const WEAPON_BOOST_RATE = 1.5;
   const { scene } = useThree();
 
   const speedRef      = useRef(0);
@@ -94,12 +96,18 @@ export default function PlayerController({ boatRef, projectiles, onPositionUpdat
     if (k['KeyE']) { k['KeyE'] = false; weaponIdx.current = (weaponIdx.current + 1) % WEAPONS.length; }
     setPlayer({ weaponIdx: weaponIdx.current, speed: speedRef.current });
 
+    // ── Sync weapon index from store (powerups can switch weapon) ──
+    if (player.weaponIdx !== weaponIdx.current) {
+      weaponIdx.current = player.weaponIdx;
+    }
+
     // ── Shoot ──────────────────────────────────────────────────
     fireTimer.current -= dt;
     const weapon = WEAPONS[weaponIdx.current];
     const shooting = mouseDown.current || k['Space'];
+    const boostedRate = player.weaponBoost ? weapon.fireRate * WEAPON_BOOST_RATE : weapon.fireRate;
     if (shooting && fireTimer.current <= 0 && !overheated.current) {
-      const fireInterval = 1 / weapon.fireRate;
+      const fireInterval = 1 / boostedRate;
       fireTimer.current = fireInterval;
 
       if (weapon.ammoType === 'heat') {
@@ -109,7 +117,10 @@ export default function PlayerController({ boatRef, projectiles, onPositionUpdat
 
       const muzzle = boat.position.clone().add(new THREE.Vector3(0, 0.5, -4).applyEuler(boat.rotation));
       const shootDir = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(0, boat.rotation.y, 0));
-      const proj = createProjectile(scene, muzzle, shootDir, true, weapon);
+      const boostedWeapon = player.weaponBoost
+        ? { ...weapon, damage: Math.round(weapon.damage * WEAPON_BOOST_DMG) }
+        : weapon;
+      const proj = createProjectile(scene, muzzle, shootDir, true, boostedWeapon);
       projectiles.current.push(proj);
       SFX.shoot(weapon.id);
     }

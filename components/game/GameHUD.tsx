@@ -109,7 +109,7 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
         {killFeed.map((k) => (
           <div key={k.id} style={{
             background: 'rgba(0,8,18,0.85)',
-            borderLeft: `2px solid ${k.cls === 'red' ? '#ff3344' : k.cls === 'gold' ? '#ffcc00' : 'var(--cyan)'}`,
+            borderLeft: `2px solid ${k.cls === 'red' ? '#ff3344' : k.cls === 'gold' ? '#ffcc00' : k.cls === 'powerup' ? '#ffcc00' : 'var(--cyan)'}`,
             padding: '5px 10px', fontSize: 10,
             color: 'rgba(255,255,255,0.75)', animation: 'kfFade 3.5s forwards',
           }}>
@@ -178,6 +178,40 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
         <canvas ref={minimapRef} width={140} height={140} style={{ width: '100%', height: '100%' }} />
       </div>
 
+      {/* ── Active power-ups ── */}
+      {player.activePowerups.length > 0 && (
+        <div style={{
+          position: 'absolute', bottom: 155, left: '50%', transform: 'translateX(-50%)',
+          display: 'flex', gap: 8, alignItems: 'center',
+        }}>
+          {player.activePowerups.map((p) => {
+            const secs = Math.ceil((p.expiresAt - Date.now()) / 1000);
+            return (
+              <div key={p.type} style={{
+                background: 'rgba(0,0,0,0.82)',
+                border: `1px solid ${p.cssColor}88`,
+                padding: '4px 12px',
+                display: 'flex', alignItems: 'center', gap: 6,
+                clipPath: 'polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)',
+                boxShadow: `0 0 10px ${p.cssColor}44`,
+              }}>
+                <span style={{ fontSize: 16 }}>{p.icon}</span>
+                <span style={{
+                  fontFamily: "'Share Tech Mono', monospace",
+                  fontSize: 10, letterSpacing: 2, fontWeight: 700,
+                  color: p.cssColor, textShadow: `0 0 6px ${p.cssColor}`,
+                }}>{p.label}</span>
+                <span style={{
+                  fontFamily: "'Rajdhani'", fontSize: 14, fontWeight: 700,
+                  color: secs <= 3 ? '#ff3344' : 'rgba(255,255,255,0.6)',
+                  minWidth: 20, textAlign: 'right',
+                }}>{secs}s</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── Active weapon ── */}
       <div style={{
         position: 'absolute', bottom: 110, left: '50%', transform: 'translateX(-50%)',
@@ -212,6 +246,16 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
             RESPAWNING...
           </div>
         </div>
+      )}
+
+      {/* ── Shield vignette ── */}
+      {player.shielded && (
+        <div style={{
+          position: 'fixed', inset: 0, pointerEvents: 'none',
+          background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,170,255,0.25) 100%)',
+          boxShadow: 'inset 0 0 40px rgba(0,170,255,0.3)',
+          animation: 'blink 2s infinite',
+        }} />
       )}
 
       {/* ── Hit vignette ── */}

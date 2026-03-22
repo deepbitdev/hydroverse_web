@@ -14,7 +14,13 @@ export default function MobileControls({ keys, onInteract }: MobileControlsProps
   const [isTouchDevice, setIsTouchDevice] = useState(false);
 
   useEffect(() => {
-    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (!isTouch) { setIsTouchDevice(false); return; }
+
+    // Suppress touch controls on VR headsets — they use XR controllers instead
+    (navigator as any).xr?.isSessionSupported('immersive-vr')
+      .then((xrOk: boolean) => setIsTouchDevice(!xrOk))
+      .catch(() => setIsTouchDevice(true));
   }, []);
 
   const joystickAreaRef = useRef<HTMLDivElement>(null);

@@ -5,7 +5,8 @@ import { PerspectiveCamera } from '@react-three/drei';
 import AnimeWater from '@/components/AnimeWater';
 import SkyDome from '@/components/SkyDome';
 import { PalmRing } from '@/components/PalmTree';
-import { FestivalStage, Buoys, FireworkParticles, CrowdDots, SceneLights } from '@/components/WorldDecorations';
+import { FestivalStage, Buoys, CrowdDots, SceneLights } from '@/components/WorldDecorations';
+import FireworksSystem from '@/components/FireworksSystem';
 import { NPC_DEFS, NpcBoat } from './NpcBoats';
 import PlayerAvatar from './PlayerAvatar';
 import LobbyDock from './LobbyDock';
@@ -44,8 +45,8 @@ export default function LobbyScene() {
         <PalmRing count={20} radius={155} />
         <FestivalStage />
         <Buoys />
-        <FireworkParticles />
         <CrowdDots />
+        <FireworksSystem />
 
         {/* NPC boats — one per game mode */}
         {NPC_DEFS.map((npc) => (

@@ -86,7 +86,7 @@ export default function PlayerController({ boatRef, projectiles, onPositionUpdat
       setPlayer({ boost: Math.min(100, pl.boost + 10 * dt) });
     }
 
-    // ── Camera follow ──────────────────────────────────────────
+    // ── Camera follow ───────────────────────────────────────────
     const camOffset = new THREE.Vector3(0, 8, 16).applyEuler(new THREE.Euler(0, boat.rotation.y, 0));
     camera.position.lerp(boat.position.clone().add(camOffset), 0.1);
     camera.lookAt(boat.position.clone().add(new THREE.Vector3(0, 0.5, 0)));

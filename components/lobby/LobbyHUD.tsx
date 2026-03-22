@@ -20,6 +20,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
 
   const npc = nearNpcId ? NPC_DEFS.find((n) => n.id === nearNpcId) : null;
 
+
   // When NPC changes, type out dialogue
   useEffect(() => {
     if (nearNpcId !== prevNpcId.current) {
@@ -212,6 +213,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
         >
           ⚔ PLAY ONLINE (PvP)
         </button>
+
       </div>
 
       {/* Proximity indicators around screen edges */}

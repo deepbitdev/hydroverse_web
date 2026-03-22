@@ -49,7 +49,7 @@ export function createAIBoat(
   stripe.position.y = 0.28; group.add(stripe);
 
   const spawnAngle = Math.random() * Math.PI * 2;
-  const spawnRadius = 40 + Math.random() * 60;
+  const spawnRadius = 15 + Math.random() * 60; // max 75 — well inside arena
   group.position.set(Math.cos(spawnAngle) * spawnRadius, 0.25, Math.sin(spawnAngle) * spawnRadius);
   group.rotation.y = Math.random() * Math.PI * 2;
 
@@ -77,12 +77,18 @@ export function createAIBoat(
   };
 }
 
+export interface AIUpdateResult {
+  shootTarget: THREE.Vector3 | null; // world position to shoot toward, or null
+  shootTargetId: string | null;      // 'player' or boat id
+}
+
 export function updateAI(
   boat: AIBoat,
   playerPos: THREE.Vector3,
   dt: number,
-  difficulty: string
-): void {
+  difficulty: string,
+  otherBoats: AIBoat[] = [],
+): AIUpdateResult {
   if (!boat.alive) {
     if (boat.respawnTimer > 0) {
       boat.respawnTimer -= dt;
@@ -90,16 +96,16 @@ export function updateAI(
         boat.alive = true;
         boat.health = 100;
         boat.mesh.visible = true;
-        const a = Math.random() * Math.PI * 2, r = 40 + Math.random() * 60;
+        const a = Math.random() * Math.PI * 2, r = 15 + Math.random() * 60;
         boat.mesh.position.set(Math.cos(a) * r, 0.25, Math.sin(a) * r);
       }
     }
-    return;
+    return { shootTarget: null, shootTargetId: null };
   }
 
   if (boat.frozenTimer > 0) {
     boat.frozenTimer -= dt;
-    return;
+    return { shootTarget: null, shootTargetId: null };
   }
 
   const pos = boat.mesh.position;
@@ -108,43 +114,82 @@ export function updateAI(
 
   boat.stateTimer -= dt;
 
-  // State machine
-  const distToPlayer = pos.distanceTo(playerPos);
+  // Find nearest enemy (player or other AI boat)
+  let nearestPos = playerPos;
+  let nearestId  = 'player';
+  let nearestDist = pos.distanceTo(playerPos);
+
+  for (const other of otherBoats) {
+    if (!other.alive || other.id === boat.id) continue;
+    const d = pos.distanceTo(other.mesh.position);
+    if (d < nearestDist) {
+      nearestDist = d;
+      nearestPos  = other.mesh.position;
+      nearestId   = other.id;
+    }
+  }
+
+  // State machine — chase nearest enemy
   if (boat.health < 30 && Math.random() < 0.01) boat.state = 'flee';
-  else if (distToPlayer < 60 && Math.random() < aggression * 0.02) boat.state = 'chase';
+  else if (nearestDist < 60 && Math.random() < aggression * 0.02) boat.state = 'chase';
   else if (boat.stateTimer <= 0) {
     boat.state = 'patrol';
     boat.stateTimer = 3 + Math.random() * 4;
     boat.targetPos.set(
-      (Math.random() - 0.5) * 160,
+      (Math.random() - 0.5) * 200,
       0.25,
-      (Math.random() - 0.5) * 160
+      (Math.random() - 0.5) * 200
     );
+    // Clamp patrol target inside arena
+    boat.targetPos.x = THREE.MathUtils.clamp(boat.targetPos.x, -90, 90);
+    boat.targetPos.z = THREE.MathUtils.clamp(boat.targetPos.z, -90, 90);
   }
 
+  const ARENA = 100; // hard arena radius boats must stay within
+
   let target: THREE.Vector3;
-  if (boat.state === 'chase') target = playerPos.clone();
-  else if (boat.state === 'flee') {
-    const away = pos.clone().sub(playerPos).normalize();
+  if (boat.state === 'chase') {
+    // Clamp chase target so we never steer toward something outside the arena
+    target = nearestPos.clone();
+    target.x = THREE.MathUtils.clamp(target.x, -ARENA, ARENA);
+    target.z = THREE.MathUtils.clamp(target.z, -ARENA, ARENA);
+  } else if (boat.state === 'flee') {
+    const away = pos.clone().sub(nearestPos).normalize();
     target = pos.clone().addScaledVector(away, 30);
+    // If fleeing would take us out of arena, flip toward center instead
+    if (Math.abs(target.x) > ARENA || Math.abs(target.z) > ARENA) {
+      target.set(0, 0.25, 0);
+    }
   } else {
     target = boat.targetPos;
+  }
+
+  // If the boat itself is near the edge, override target to steer back to center
+  const distFromCenter = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+  if (distFromCenter > ARENA * 0.85) {
+    target = new THREE.Vector3(0, 0.25, 0);
   }
 
   // Steer toward target
   const toTarget = target.clone().sub(pos).normalize();
   const forward = new THREE.Vector3(0, 0, -1).applyEuler(boat.mesh.rotation);
   const cross = new THREE.Vector3().crossVectors(forward, toTarget);
-  boat.mesh.rotation.y -= cross.y * boat.turnSpeed * dt * speedMult;
+  const steerMult = distFromCenter > ARENA * 0.85 ? 4 : 1; // stronger turn near edge
+  boat.mesh.rotation.y -= cross.y * boat.turnSpeed * dt * speedMult * steerMult;
 
   // Move forward
   const dir = new THREE.Vector3(0, 0, -1).applyEuler(boat.mesh.rotation);
   pos.addScaledVector(dir, boat.speed * dt * speedMult);
   pos.y = 0.25;
 
-  // Arena boundary
-  const boundary = 150;
-  if (Math.abs(pos.x) > boundary || Math.abs(pos.z) > boundary) {
-    boat.mesh.rotation.y += Math.PI * dt * 2;
-  }
+  // Hard clamp — last resort so nothing escapes
+  pos.x = THREE.MathUtils.clamp(pos.x, -ARENA, ARENA);
+  pos.z = THREE.MathUtils.clamp(pos.z, -ARENA, ARENA);
+
+  // Return shoot info so caller can spawn projectiles
+  const canShoot = nearestDist < 45;
+  return {
+    shootTarget: canShoot ? nearestPos.clone() : null,
+    shootTargetId: canShoot ? nearestId : null,
+  };
 }

@@ -8,6 +8,7 @@ export interface Projectile {
   life: number;
   alive: boolean;
   isPlayer: boolean;
+  shooterId?: string; // 'player' or AI boat id
   damage: number;
   homing?: boolean;
   freeze?: boolean;
@@ -24,7 +25,8 @@ export function createProjectile(
   origin: THREE.Vector3,
   dir: THREE.Vector3,
   isPlayer: boolean,
-  weapon: { damage: number; projectileSpeed: number; homing?: boolean; freeze?: boolean; isGas?: boolean; bounce?: number }
+  weapon: { damage: number; projectileSpeed: number; homing?: boolean; freeze?: boolean; isGas?: boolean; bounce?: number },
+  shooterId?: string,
 ): Projectile {
   let geo: THREE.BufferGeometry;
   let mat: THREE.Material;
@@ -55,6 +57,7 @@ export function createProjectile(
     life: weapon.isGas ? 3 : 2.5,
     alive: true,
     isPlayer,
+    shooterId,
     damage: weapon.damage,
     homing: weapon.homing,
     freeze: weapon.freeze,

@@ -6,7 +6,7 @@ import { useGameStore } from '@/store/gameStore';
 import AnimeWater from '@/components/AnimeWater';
 import SkyDome from '@/components/SkyDome';
 import { PalmRing } from '@/components/PalmTree';
-import { FestivalStage, Buoys, FireworkParticles, CrowdDots, SceneLights } from '@/components/WorldDecorations';
+import { FestivalStage, Buoys, CrowdDots, SceneLights } from '@/components/WorldDecorations';
 import BoatMesh from '@/components/BoatMesh';
 import GameHUD from './GameHUD';
 import EndScreen from './EndScreen';
@@ -14,6 +14,7 @@ import PlayerController from './PlayerController';
 import MobileControls from './MobileControls';
 import RemotePlayer from './RemotePlayer';
 import PowerupManager from './PowerupManager';
+import FireworksSystem from '@/components/FireworksSystem';
 import { Html } from '@react-three/drei';
 import { createAIBoat, updateAI, AIBoat } from '@/lib/aiBoat';
 import { Projectile, updateProjectiles, spawnExplosion } from '@/lib/projectiles';
@@ -44,7 +45,7 @@ function AIBoatLabel({ boat }: { boat: AIBoat }) {
         }}>
           <div style={{
             fontFamily: "'Share Tech Mono', monospace",
-            fontSize: 18, letterSpacing: 3, fontWeight: 700,
+            fontSize: 25, letterSpacing: 3, fontWeight: 700,
             color: '#ff9933',
             background: 'rgba(0,0,0,0.75)',
             border: '1px solid rgba(255,150,50,0.7)',
@@ -55,7 +56,7 @@ function AIBoatLabel({ boat }: { boat: AIBoat }) {
             {boat.name}
           </div>
           <div style={{
-            fontSize: 13, letterSpacing: 4,
+            fontSize: 18, letterSpacing: 4,
             color: '#ff9933',
             background: 'rgba(0,0,0,0.65)',
             border: '1px solid rgba(255,150,50,0.4)',
@@ -112,11 +113,6 @@ function GameWorld({
     if (!matchRunning) return;
     const playerPos = playerBoatRef.current?.position ?? new THREE.Vector3();
 
-    // ── AI boats ────────────────────────────────────────────
-    aiBoatsRef.current.forEach((boat) => {
-      updateAI(boat, playerPos, dt, settings.difficulty);
-    });
-
     // ── Projectile updates & collisions ────────────────────
     updateProjectiles(projectilesRef.current, scene, dt);
 
@@ -144,6 +140,45 @@ function GameWorld({
             }
           }
         });
+      } else if (p.shooterId && p.shooterId !== 'player') {
+        // AI-vs-AI: check hit on other AI boats and the player
+        aiBoatsRef.current.forEach((boat) => {
+          if (!boat.alive || !p.alive || boat.id === p.shooterId) return;
+          if (ppos.distanceTo(boat.mesh.position) < 3) {
+            boat.health -= p.damage;
+            spawnExplosion(scene, ppos.clone(), 12, 0xff6600);
+            SFX.explosion(0.6);
+            p.alive = false;
+            if (boat.health <= 0) {
+              boat.alive = false;
+              boat.mesh.visible = false;
+              boat.respawnTimer = 6;
+              spawnExplosion(scene, boat.mesh.position.clone(), 45, 0xff3300);
+              SFX.explosion(1.2);
+              const killer = aiBoatsRef.current.find((b) => b.id === p.shooterId);
+              addKill(`⊕ ${killer?.name ?? 'AI'} destroyed ${boat.name}`, '');
+              ScoreManager.onKill(p.shooterId!, boat.id, settingsRef.current.mode);
+            }
+          }
+        });
+        // AI can also hit the player
+        const shielded = useGameStore.getState().player.shielded;
+        if (!player.dead && !shielded && ppos.distanceTo(playerPos) < 2.8) {
+          const newHealth = Math.max(0, player.health - p.damage);
+          setPlayer({ health: newHealth });
+          SFX.hit();
+          p.alive = false;
+          spawnExplosion(scene, ppos.clone(), 8, 0xff0000);
+          if (newHealth <= 0 && !player.dead) {
+            setPlayer({ dead: true });
+            spawnExplosion(scene, playerPos.clone(), 50, 0xff3300);
+            SFX.explosion(1.8);
+            if (playerBoatRef.current) playerBoatRef.current.visible = false;
+            addKill('☠ Your vessel was destroyed', 'red');
+            ScoreManager.onDeath('player');
+            setTimeout(() => { if (playerBoatRef.current) playerBoatRef.current.visible = true; }, 5000);
+          }
+        }
       } else {
         // vs player
         const shielded = useGameStore.getState().player.shielded;
@@ -168,15 +203,14 @@ function GameWorld({
       }
     });
 
-    // ── AI shoots at player ─────────────────────────────────
+    // ── AI shoots at nearest target (player or other AI) ────
     aiBoatsRef.current.forEach((boat) => {
       if (!boat.alive) return;
-      const dist = boat.mesh.position.distanceTo(playerPos);
-      if (dist < 45 && Math.random() < 0.004) {
-        const dir = playerPos.clone().sub(boat.mesh.position).normalize();
-        dir.y = 0;
+      const result = updateAI(boat, playerPos, dt, settings.difficulty, aiBoatsRef.current);
+      if (result.shootTarget && Math.random() < 0.004) {
+        const dir = result.shootTarget.clone().sub(boat.mesh.position).setY(0).normalize();
         const muzzle = boat.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
-        const proj = createProjectile(scene, muzzle, dir, false, { damage: 18, projectileSpeed: 25 });
+        const proj = createProjectile(scene, muzzle, dir, false, { damage: 18, projectileSpeed: 25 }, boat.id);
         projectilesRef.current.push(proj);
       }
     });
@@ -212,8 +246,8 @@ function GameWorld({
       <PalmRing count={20} radius={155} />
       <FestivalStage />
       <Buoys />
-      <FireworkParticles />
       <CrowdDots />
+      <FireworksSystem />
       <AnimeWater size={900} ripples={ripplesRef.current} />
 
       {/* Player boat */}
@@ -522,6 +556,7 @@ export default function GameScene() {
 
         {/* Power-up spawning and collection */}
         <PowerupManager playerRef={playerBoatRef} />
+
       </Canvas>
 
       <GameHUD

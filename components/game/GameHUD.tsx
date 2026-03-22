@@ -1,7 +1,8 @@
 'use client';
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { WEAPONS } from '@/lib/weapons';
+import { ScoreManager } from '@/lib/scoreManager';
 import type { AIBoat } from '@/lib/aiBoat';
 
 interface GameHUDProps {
@@ -11,9 +12,19 @@ interface GameHUDProps {
 }
 
 export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: GameHUDProps) {
-  const { player, matchTimer, settings, killFeed, matchEnded, matchRunning } = useGameStore();
+  const { player, matchTimer, settings, killFeed } = useGameStore();
   const minimapRef = useRef<HTMLCanvasElement>(null);
   const isTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  const [showScores, setShowScores] = useState(false);
+  // VR detection and prompt are handled globally in HydroApp's VRDetector component
+
+  useEffect(() => {
+    const onDown = (e: KeyboardEvent) => { if (e.code === 'Tab') { e.preventDefault(); setShowScores(true); } };
+    const onUp   = (e: KeyboardEvent) => { if (e.code === 'Tab') setShowScores(false); };
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => { window.removeEventListener('keydown', onDown); window.removeEventListener('keyup', onUp); };
+  }, []);
 
   const mins = Math.floor(matchTimer / 60);
   const secs = Math.floor(matchTimer % 60);
@@ -51,6 +62,7 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
   });
 
   const weapon = WEAPONS[player.weaponIdx] || WEAPONS[0];
+
 
   return (
     <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 50 }}>
@@ -286,6 +298,66 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
         </div>
       )}
 
+      {/* ── Scores overlay (TAB) ── */}
+      {showScores && (() => {
+        const scores = ScoreManager.getSorted();
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'rgba(0,4,12,0.82)', zIndex: 60, pointerEvents: 'none',
+          }}>
+            <div style={{
+              background: 'rgba(0,8,20,0.97)', border: '1px solid rgba(0,200,255,0.3)',
+              minWidth: 420, padding: '28px 36px',
+              clipPath: 'polygon(16px 0,100% 0,calc(100% - 16px) 100%,0 100%)',
+            }}>
+              <div style={{
+                fontFamily: "'Share Tech Mono', monospace", fontSize: 11,
+                letterSpacing: 5, color: 'var(--cyan)', marginBottom: 18, textAlign: 'center',
+              }}>
+                SCOREBOARD
+              </div>
+              {/* Header */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 60px 60px 60px',
+                fontSize: 9, letterSpacing: 3, color: 'rgba(0,200,255,0.45)',
+                borderBottom: '1px solid rgba(0,200,255,0.15)', paddingBottom: 8, marginBottom: 8,
+              }}>
+                <span>PILOT</span>
+                <span style={{ textAlign: 'center' }}>KILLS</span>
+                <span style={{ textAlign: 'center' }}>DEATHS</span>
+                <span style={{ textAlign: 'center' }}>SCORE</span>
+              </div>
+              {scores.map((s, i) => (
+                <div key={s.id} style={{
+                  display: 'grid', gridTemplateColumns: '1fr 60px 60px 60px',
+                  padding: '7px 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  fontFamily: "'Rajdhani'", fontSize: 16, fontWeight: 700,
+                  color: s.id === 'player' ? 'var(--cyan)' : 'rgba(255,255,255,0.75)',
+                  background: i === 0 ? 'rgba(255,220,0,0.06)' : 'transparent',
+                }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {i === 0 && <span style={{ color: '#ffcc00', fontSize: 12 }}>▲</span>}
+                    {s.name}
+                    {s.id === 'player' && <span style={{ fontSize: 9, color: 'rgba(0,200,255,0.5)', letterSpacing: 2 }}>YOU</span>}
+                  </span>
+                  <span style={{ textAlign: 'center', color: '#ff6688' }}>{s.kills}</span>
+                  <span style={{ textAlign: 'center', color: 'rgba(255,255,255,0.35)' }}>{s.deaths}</span>
+                  <span style={{ textAlign: 'center', color: '#ffcc00' }}>{s.score}</span>
+                </div>
+              ))}
+              <div style={{
+                marginTop: 18, fontSize: 9, letterSpacing: 3,
+                color: 'rgba(255,255,255,0.2)', textAlign: 'center',
+              }}>
+                HOLD TAB TO VIEW
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Return to lobby ── */}
       <button
         onClick={onReturnLobby}
@@ -299,6 +371,7 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
       >
         ← LOBBY
       </button>
+
     </div>
   );
 }

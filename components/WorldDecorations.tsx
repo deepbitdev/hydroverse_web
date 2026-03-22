@@ -91,43 +91,6 @@ export function Buoys() {
   );
 }
 
-export function FireworkParticles() {
-  const pointsRef = useRef<THREE.Points>(null);
-
-  const { positions, colors } = useMemo(() => {
-    const positions = new Float32Array(300 * 3);
-    const colors = new Float32Array(300 * 3);
-    const palette = [[1, 0.9, 0], [1, 0.2, 0.4], [0.2, 0.9, 1], [1, 0.6, 0], [0.8, 0.2, 1]];
-    for (let i = 0; i < 300; i++) {
-      positions[i * 3]     = (Math.random() - 0.5) * 300;
-      positions[i * 3 + 1] = 15 + Math.random() * 60;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 300;
-      const c = palette[i % 5];
-      colors[i * 3] = c[0]; colors[i * 3 + 1] = c[1]; colors[i * 3 + 2] = c[2];
-    }
-    return { positions, colors };
-  }, []);
-
-  useFrame(({ clock }) => {
-    if (!pointsRef.current) return;
-    const pos = (pointsRef.current.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array;
-    const t = clock.getElapsedTime();
-    for (let i = 0; i < 300; i++) {
-      pos[i * 3 + 1] += Math.sin(t * 2 + i * 0.5) * 0.02;
-    }
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
-  });
-
-  return (
-    <points ref={pointsRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
-      </bufferGeometry>
-      <pointsMaterial size={0.8} vertexColors sizeAttenuation />
-    </points>
-  );
-}
 
 export function CrowdDots() {
   const positions = useMemo(() => {

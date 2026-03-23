@@ -22,6 +22,11 @@ html, body {
   background: #1a0800;
   font-family: 'Share Tech Mono', monospace;
   cursor: crosshair;
+  /* Prevent mobile bounce/scroll */
+  position: fixed;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+  touch-action: none;
 }
 
 @keyframes logoPulse {

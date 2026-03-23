@@ -194,7 +194,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
         textAlign: 'center', zIndex: 100,
       }}>
         <div className="logo-text" style={{ fontSize: 32, letterSpacing: 12, pointerEvents: 'none' }}>HYDROVERSE</div>
-        <div style={{ fontSize: 9, letterSpacing: 6, color: 'rgba(0,200,255,0.35)', marginTop: 2, pointerEvents: 'none' }}>
+        <div style={{ fontSize: 25, letterSpacing: 6, color: 'rgb(255, 255, 255)', marginTop: 2, pointerEvents: 'none' }}>
           APPROACH A VESSEL TO SELECT GAME MODE
         </div>
         <button

@@ -14,10 +14,10 @@ export default function AnimeWater({ size = 900, ripples = [] }: WaterProps) {
 
   const uniforms = useMemo(() => ({
     uTime:           { value: 0 },
-    uColorDeep:      { value: new THREE.Color(0x006477) },
-    uColorMid:       { value: new THREE.Color(0x00b8b0) },
-    uColorHighlight: { value: new THREE.Color(0x7fffee) },
-    uColorFoam:      { value: new THREE.Color(0xffffff) },
+    uColorDeep:      { value: new THREE.Color(0x001a4d) },
+    uColorMid:       { value: new THREE.Color(0x0055aa) },
+    uColorHighlight: { value: new THREE.Color(0x4499ff) },
+    uColorFoam:      { value: new THREE.Color(0xaad4ff) },
     uScale:          { value: 18.0 },
     uSpeed:          { value: 1.0 },
     uRipples:        { value: Array(8).fill(null).map(() => new THREE.Vector3(0, 0, 1)) },
@@ -44,7 +44,7 @@ export default function AnimeWater({ size = 900, ripples = [] }: WaterProps) {
       {/* Seabed */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, 0]}>
         <planeGeometry args={[size, size]} />
-        <meshBasicMaterial color={0x003a44} />
+        <meshBasicMaterial color={0x000d26} />
       </mesh>
 
       {/* Animated water surface */}

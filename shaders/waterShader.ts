@@ -143,10 +143,6 @@ export const waterFragmentShader = /* glsl */ `
     // ── Horizon distance fade ─────────────────────────────────
     float distFade = 1.0 - smoothstep(60.0, 120.0, length(vWorldPos.xz));
 
-    // ── Surface sparkle stars ─────────────────────────────────
-    float sparkle = step(0.97, hash(floor(distUV * 3.0) + floor(uTime * 2.0)));
-    col += sparkle * uColorFoam * 0.6;
-
     // Slight transparency at distance for horizon blend
     float alpha = 0.88 + 0.06 * distFade;
 
@@ -156,9 +152,9 @@ export const waterFragmentShader = /* glsl */ `
 
 export const waterUniforms = () => ({
   uTime:           { value: 0 },
-  uColorDeep:      { value: [0.0, 0.15, 0.40] },      // #002666 deep ocean blue
-  uColorMid:       { value: [0.0, 0.40, 0.75] },      // #0066bf ocean blue
-  uColorHighlight: { value: [0.30, 0.72, 1.0] },      // #4db8ff bright ocean highlight
+  uColorDeep:      { value: [0.0, 0.39, 0.47] },      // #0796b3 deep teal
+  uColorMid:       { value: [0.0, 0.72, 0.69] },      // #00b8b0 turquoise
+  uColorHighlight: { value: [0.50, 1.0, 0.93] },      // #7fffee bright highlight
   uColorFoam:      { value: [1.0, 1.0, 1.0] },        // white foam
   uScale:          { value: 18.0 },
   uSpeed:          { value: 1.0 },

@@ -109,6 +109,11 @@ function GameWorld({
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
+  // Reset endFired whenever a new match starts
+  useEffect(() => {
+    if (matchRunning) endFired.current = false;
+  }, [matchRunning]);
+
   useFrame((_, dt) => {
     if (!matchRunning) return;
     const playerPos = playerBoatRef.current?.position ?? new THREE.Vector3();
@@ -203,9 +208,8 @@ function GameWorld({
       }
     });
 
-    // ── AI shoots at nearest target (player or other AI) ────
+    // ── AI update (handles movement, shooting, and respawn countdown) ────
     aiBoatsRef.current.forEach((boat) => {
-      if (!boat.alive) return;
       const result = updateAI(boat, playerPos, dt, settings.difficulty, aiBoatsRef.current);
       if (result.shootTarget && Math.random() < 0.004) {
         const dir = result.shootTarget.clone().sub(boat.mesh.position).setY(0).normalize();
@@ -508,7 +512,34 @@ export default function GameScene() {
   }, [endMatchAction]);
 
   const handleReturnLobby = useCallback(() => { setScreen('lobby'); }, [setScreen]);
-  const handleRematch     = useCallback(() => { startMatch(); }, [startMatch]);
+  const handleRematch = useCallback(() => {
+    // Clear lingering projectiles
+    projectilesRef.current = [];
+
+    // Reset all AI boats to full health at new spawn positions
+    aiBoatsRef.current.forEach((boat) => {
+      boat.health = 100;
+      boat.alive = true;
+      boat.mesh.visible = true;
+      boat.respawnTimer = 0;
+      boat.kills = 0;
+      boat.deaths = 0;
+      boat.score = 0;
+      boat.state = 'patrol';
+      const a = Math.random() * Math.PI * 2;
+      const r = 15 + Math.random() * 60;
+      boat.mesh.position.set(Math.cos(a) * r, 0.25, Math.sin(a) * r);
+    });
+
+    // Reset scoreboard
+    ScoreManager.reset([
+      { id: 'player', name: 'YOU' },
+      ...aiBoatsRef.current.map((b) => ({ id: b.id, name: b.name, team: b.team })),
+    ]);
+
+    setEndState(null);
+    startMatch();
+  }, [startMatch]);
 
   const remotePlayerList = Object.values(remotePlayers);
 

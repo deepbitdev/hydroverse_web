@@ -46,8 +46,11 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
     if (!npc) return;
     const nextIdx = dialogueIdx + 1;
     if (nextIdx >= npc.greeting.length) {
-      // Show launch panel after cycling all dialogue
-      setShowPanel(true);
+      if (npc.openOnline) {
+        setShowOnline(true);
+      } else {
+        setShowPanel(true);
+      }
     } else {
       setDialogueIdx(nextIdx);
     }
@@ -55,6 +58,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
 
   const handleLaunch = () => {
     if (!npc) return;
+    if (npc.openOnline) { setShowOnline(true); return; }
     setSettings({ mode: npc.mode as GameMode });
     startMatch();
   };
@@ -197,22 +201,6 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
         <div style={{ fontSize: 25, letterSpacing: 6, color: 'rgb(0, 0, 0)', marginTop: 2, pointerEvents: 'none' }}>
           APPROACH A VESSEL TO SELECT GAME MODE
         </div>
-        <button
-          onClick={() => setShowOnline(true)}
-          style={{
-            marginTop: 12,
-            fontFamily: "'Rajdhani',sans-serif", fontWeight: 700,
-            fontSize: 11, letterSpacing: 5,
-            padding: '7px 24px',
-            background: 'rgba(255,80,100,0.12)',
-            border: '1px solid rgba(255,80,100,0.5)',
-            color: '#ff5064',
-            cursor: 'pointer',
-            clipPath: 'polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)',
-          }}
-        >
-          ⚔ PLAY ONLINE (PvP)
-        </button>
 
       </div>
 

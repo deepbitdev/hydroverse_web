@@ -1,6 +1,5 @@
 'use client';
-import React, { useMemo } from 'react';
-import * as THREE from 'three';
+import React from 'react';
 
 export default function LobbyDock() {
   // Central hexagonal dock platform where you spawn
@@ -49,13 +48,14 @@ export default function LobbyDock() {
       })}
 
       {/* NPC docking piers - extend toward each NPC */}
-      {[
-        { dir: [0, -1], len: 20, x: 0, z: -8 },      // FFA — forward
-        { dir: [-1, 0], len: 20, x: -20, z: 0 },     // TDM — left
-        { dir: [1, 0],  len: 20, x: 20, z: 0 },      // LBS — right
-      ].map((p, i) => (
-        <mesh key={i} position={[p.x, -0.2, p.z]}>
-          <boxGeometry args={[p.dir[0] !== 0 ? p.len : 3, 0.3, p.dir[1] !== 0 ? p.len : 3]} />
+      {([
+        { x: 0,   z: -8,  len: 20, ry: 0 },              // FFA — forward
+        { x: -20, z: 0,   len: 20, ry: Math.PI / 2 },    // TDM — left
+        { x: 20,  z: 0,   len: 20, ry: Math.PI / 2 },    // LBS — right
+        { x: 10,  z: -10, len: 22, ry: Math.PI / 4 },    // PvP — front-right diagonal
+      ] as { x: number; z: number; len: number; ry: number }[]).map((p, i) => (
+        <mesh key={i} position={[p.x, -0.2, p.z]} rotation={[0, p.ry, 0]}>
+          <boxGeometry args={[3, 0.3, p.len]} />
           <meshLambertMaterial color={0x6a4a1a} />
         </mesh>
       ))}

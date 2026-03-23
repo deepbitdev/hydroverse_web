@@ -14,6 +14,7 @@ export interface NpcDef {
   subtitle: string;
   greeting: string[];
   flagColor: number;
+  openOnline?: boolean; // opens OnlinePanel instead of launching a local match
 }
 
 export const NPC_DEFS: NpcDef[] = [
@@ -48,6 +49,23 @@ export const NPC_DEFS: NpcDef[] = [
       'Your squad needs you, captain.',
     ],
     flagColor: 0x4488ff,
+  },
+  {
+    id: 'pvp',
+    mode: 'FFA',
+    position: [16, 0, -16],
+    color: 0xff5064,
+    accentColor: 0xff2244,
+    label: 'PLAY ONLINE',
+    subtitle: 'PvP — REAL OPPONENTS',
+    greeting: [
+      'The open seas await, captain.',
+      'No bots — only real opponents.',
+      'Join a room or create your own.',
+      'Prove yourself against the best.',
+    ],
+    flagColor: 0xff5064,
+    openOnline: true,
   },
   {
     id: 'lbs',

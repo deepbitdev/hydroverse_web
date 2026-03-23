@@ -12,6 +12,7 @@ import PlayerAvatar from './PlayerAvatar';
 import LobbyDock from './LobbyDock';
 import LobbyHUD from './LobbyHUD';
 import MobileControls from '@/components/game/MobileControls';
+import { adaptiveDpr } from '@/lib/deviceUtils';
 
 export default function LobbyScene() {
   const [nearNpcId, setNearNpcId] = useState<string | null>(null);
@@ -37,6 +38,7 @@ export default function LobbyScene() {
         gl={{ antialias: true, alpha: false }}
         camera={{ fov: 65, near: 0.1, far: 1000, position: [0, 12, 35] }}
         style={{ background: '#1a0400' }}
+        dpr={adaptiveDpr()}
       >
         <SceneLights />
         <SkyDome />

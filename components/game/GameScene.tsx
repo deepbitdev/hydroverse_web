@@ -21,6 +21,7 @@ import { Projectile, updateProjectiles, spawnExplosion } from '@/lib/projectiles
 import { createProjectile } from '@/lib/projectiles';
 import { ScoreManager } from '@/lib/scoreManager';
 import { SFX } from '@/lib/sfx';
+import { adaptiveDpr } from '@/lib/deviceUtils';
 import { WEAPONS } from '@/lib/weapons';
 import { connectSocket, disconnectSocket } from '@/lib/socket';
 import type { GameStatePayload, ShootPayload, HitPayload, KillPayload } from '@/lib/multiplayer';
@@ -595,6 +596,7 @@ export default function GameScene() {
         gl={{ antialias: false, alpha: false }}
         camera={{ fov: 72, near: 0.1, far: 1000, position: [0, 8, 16] }}
         style={{ background: '#1a0400' }}
+        dpr={adaptiveDpr()}
       >
         <GameWorld
           playerBoatRef={playerBoatRef}

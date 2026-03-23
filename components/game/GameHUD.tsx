@@ -78,26 +78,28 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
           clipPath: 'polygon(0 0,100% 0,100% 100%,12px 100%)', paddingLeft: 30,
         }}>
           <div style={{ fontSize: 8, letterSpacing: 3, color: 'rgba(255,255,255,0.35)' }}>
-            {settings.mode === 'TDM' ? 'RED' : 'SCORE'}
+            {settings.mode === 'TDM' ? 'RED' : settings.mode === 'LBS' ? 'ENEMIES' : 'SCORE'}
           </div>
           <div style={{ fontFamily: "'Rajdhani'", fontSize: 22, fontWeight: 700, color: '#ff4466', lineHeight: 1, textShadow: '0 0 12px rgba(255,50,80,0.6)' }}>
-            {settings.mode === 'TDM' ? '0' : '0'}
+            {settings.mode === 'TDM' ? ScoreManager.teamScores.red : settings.mode === 'LBS' ? aiBoats.filter((b) => b.alive).length : ScoreManager.players['player']?.score ?? 0}
           </div>
         </div>
 
-        <div style={{
-          background: 'rgba(0,10,20,0.9)', border: '1px solid rgba(0,200,255,0.3)',
-          borderTop: 'none', padding: '6px 26px', textAlign: 'center',
-        }}>
+        {settings.mode !== 'LBS' && (
           <div style={{
-            fontFamily: "'Rajdhani'", fontSize: 26, fontWeight: 700, lineHeight: 1,
-            color: timerDanger ? '#ff3344' : 'var(--cyan)',
-            animation: timerDanger ? 'blink 0.5s infinite' : 'none',
+            background: 'rgba(0,10,20,0.9)', border: '1px solid rgba(0,200,255,0.3)',
+            borderTop: 'none', padding: '6px 26px', textAlign: 'center',
           }}>
-            {mins}:{secs.toString().padStart(2, '0')}
+            <div style={{
+              fontFamily: "'Rajdhani'", fontSize: 26, fontWeight: 700, lineHeight: 1,
+              color: timerDanger ? '#ff3344' : 'var(--cyan)',
+              animation: timerDanger ? 'blink 0.5s infinite' : 'none',
+            }}>
+              {mins}:{secs.toString().padStart(2, '0')}
+            </div>
+            <div style={{ fontSize: 8, letterSpacing: 3, color: 'rgba(0,200,255,0.4)' }}>MATCH TIME</div>
           </div>
-          <div style={{ fontSize: 8, letterSpacing: 3, color: 'rgba(0,200,255,0.4)' }}>MATCH TIME</div>
-        </div>
+        )}
 
         <div style={{
           background: 'var(--panel)', borderBottom: '1px solid var(--border)',
@@ -108,7 +110,7 @@ export default function GameHUD({ aiBoats, playerWorldPos, onReturnLobby }: Game
             {settings.mode === 'TDM' ? 'BLUE' : 'ALIVE'}
           </div>
           <div style={{ fontFamily: "'Rajdhani'", fontSize: 22, fontWeight: 700, color: '#44aaff', lineHeight: 1, textShadow: '0 0 12px rgba(50,150,255,0.6)' }}>
-            {aiBoats.filter((b) => b.alive).length}
+            {settings.mode === 'TDM' ? ScoreManager.teamScores.blue : aiBoats.filter((b) => b.alive).length}
           </div>
         </div>
       </div>

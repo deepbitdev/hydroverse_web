@@ -88,6 +88,7 @@ export function updateAI(
   dt: number,
   difficulty: string,
   otherBoats: AIBoat[] = [],
+  playerTeam: 'red' | 'blue' | null = null,
 ): AIUpdateResult {
   if (!boat.alive) {
     if (boat.respawnTimer > 0) {
@@ -114,13 +115,15 @@ export function updateAI(
 
   boat.stateTimer -= dt;
 
-  // Find nearest enemy (player or other AI boat)
-  let nearestPos = playerPos;
-  let nearestId  = 'player';
-  let nearestDist = pos.distanceTo(playerPos);
+  // Find nearest enemy — skip teammates in TDM
+  const playerIsEnemy = !boat.team || !playerTeam || boat.team !== playerTeam;
+  let nearestPos: THREE.Vector3 = playerIsEnemy ? playerPos : new THREE.Vector3(9999, 0, 9999);
+  let nearestId:  string        = playerIsEnemy ? 'player' : '';
+  let nearestDist               = playerIsEnemy ? pos.distanceTo(playerPos) : Infinity;
 
   for (const other of otherBoats) {
     if (!other.alive || other.id === boat.id) continue;
+    if (boat.team && other.team && boat.team === other.team) continue; // same team
     const d = pos.distanceTo(other.mesh.position);
     if (d < nearestDist) {
       nearestDist = d;
@@ -187,7 +190,7 @@ export function updateAI(
   pos.z = THREE.MathUtils.clamp(pos.z, -ARENA, ARENA);
 
   // Return shoot info so caller can spawn projectiles
-  const canShoot = nearestDist < 45;
+  const canShoot = nearestId !== '' && nearestDist < 45;
   return {
     shootTarget: canShoot ? nearestPos.clone() : null,
     shootTargetId: canShoot ? nearestId : null,

@@ -26,7 +26,7 @@ import { connectSocket, disconnectSocket } from '@/lib/socket';
 import type { GameStatePayload, ShootPayload, HitPayload, KillPayload } from '@/lib/multiplayer';
 
 // ── Label that tracks a single AI boat mesh ──────────────────
-function AIBoatLabel({ boat }: { boat: AIBoat }) {
+function AIBoatLabel({ boat, playerTeam }: { boat: AIBoat; playerTeam: 'red' | 'blue' | null }) {
   const groupRef = useRef<THREE.Group>(null);
 
   useFrame(() => {
@@ -35,6 +35,12 @@ function AIBoatLabel({ boat }: { boat: AIBoat }) {
     groupRef.current.position.y += 3.8;
     groupRef.current.visible = boat.alive;
   });
+
+  const isAlly = playerTeam !== null && boat.team === playerTeam;
+  const color = isAlly ? '#44aaff' : boat.team ? '#ff3344' : '#ff9933';
+  const borderAlpha = isAlly ? 'rgba(50,150,255,0.7)' : boat.team ? 'rgba(255,50,70,0.7)' : 'rgba(255,150,50,0.7)';
+  const shadowColor = isAlly ? 'rgba(50,150,255,0.8)' : boat.team ? 'rgba(255,50,70,0.8)' : 'rgba(255,150,50,0.8)';
+  const subLabel = isAlly ? 'ALLY (AI)' : 'ENEMY (AI)';
 
   return (
     <group ref={groupRef}>
@@ -46,25 +52,25 @@ function AIBoatLabel({ boat }: { boat: AIBoat }) {
           <div style={{
             fontFamily: "'Share Tech Mono', monospace",
             fontSize: 25, letterSpacing: 3, fontWeight: 700,
-            color: '#ff9933',
+            color,
             background: 'rgba(0,0,0,0.75)',
-            border: '1px solid rgba(255,150,50,0.7)',
+            border: `1px solid ${borderAlpha}`,
             padding: '4px 14px',
             whiteSpace: 'nowrap',
-            textShadow: '0 0 8px rgba(255,150,50,0.8)',
+            textShadow: `0 0 8px ${shadowColor}`,
           }}>
             {boat.name}
           </div>
           <div style={{
             fontSize: 18, letterSpacing: 4,
-            color: '#ff9933',
+            color,
             background: 'rgba(0,0,0,0.65)',
-            border: '1px solid rgba(255,150,50,0.4)',
+            border: `1px solid ${borderAlpha.replace('0.7', '0.4')}`,
             borderTop: 'none',
             padding: '2px 10px',
             whiteSpace: 'nowrap',
           }}>
-            ENEMY (AI)
+            {subLabel}
           </div>
         </div>
       </Html>
@@ -73,13 +79,13 @@ function AIBoatLabel({ boat }: { boat: AIBoat }) {
 }
 
 // ── Renders labels for all AI boats ──────────────────────────
-function AIBoatLabels({ aiBoatsRef }: { aiBoatsRef: React.MutableRefObject<AIBoat[]> }) {
+function AIBoatLabels({ aiBoatsRef, playerTeam }: { aiBoatsRef: React.MutableRefObject<AIBoat[]>; playerTeam: 'red' | 'blue' | null }) {
   // Snapshot the list once on mount; new boats won't appear mid-match
   const boats = aiBoatsRef.current;
   return (
     <>
       {boats.map((boat) => (
-        <AIBoatLabel key={boat.id} boat={boat} />
+        <AIBoatLabel key={boat.id} boat={boat} playerTeam={playerTeam} />
       ))}
     </>
   );
@@ -117,6 +123,9 @@ function GameWorld({
   useFrame((_, dt) => {
     if (!matchRunning) return;
     const playerPos = playerBoatRef.current?.position ?? new THREE.Vector3();
+    // In TDM the player is on the blue team; LBS has no teams
+    const playerTeam = settingsRef.current.mode === 'TDM' ? 'blue' as const : null;
+    const isLBS = settingsRef.current.mode === 'LBS';
 
     // ── Projectile updates & collisions ────────────────────
     updateProjectiles(projectilesRef.current, scene, dt);
@@ -126,9 +135,10 @@ function GameWorld({
       const ppos = p.mesh.position;
 
       if (p.isPlayer) {
-        // vs AI boats
+        // vs AI boats — no friendly fire in TDM
         aiBoatsRef.current.forEach((boat) => {
           if (!boat.alive || !p.alive) return;
+          if (playerTeam && boat.team === playerTeam) return;
           if (ppos.distanceTo(boat.mesh.position) < 3) {
             boat.health -= p.damage;
             spawnExplosion(scene, ppos.clone(), 12, 0xff6600);
@@ -137,7 +147,7 @@ function GameWorld({
             if (boat.health <= 0) {
               boat.alive = false;
               boat.mesh.visible = false;
-              boat.respawnTimer = 6;
+              boat.respawnTimer = isLBS ? Infinity : 6;
               spawnExplosion(scene, boat.mesh.position.clone(), 45, 0xff3300);
               SFX.explosion(1.2);
               addKill(`⊕ ${boat.name} destroyed`, '');
@@ -146,9 +156,11 @@ function GameWorld({
           }
         });
       } else if (p.shooterId && p.shooterId !== 'player') {
-        // AI-vs-AI: check hit on other AI boats and the player
+        // AI-vs-AI: check hit on other AI boats — no friendly fire in TDM
+        const shooterBoat = aiBoatsRef.current.find((b) => b.id === p.shooterId);
         aiBoatsRef.current.forEach((boat) => {
           if (!boat.alive || !p.alive || boat.id === p.shooterId) return;
+          if (shooterBoat?.team && boat.team === shooterBoat.team) return;
           if (ppos.distanceTo(boat.mesh.position) < 3) {
             boat.health -= p.damage;
             spawnExplosion(scene, ppos.clone(), 12, 0xff6600);
@@ -157,7 +169,7 @@ function GameWorld({
             if (boat.health <= 0) {
               boat.alive = false;
               boat.mesh.visible = false;
-              boat.respawnTimer = 6;
+              boat.respawnTimer = isLBS ? Infinity : 6;
               spawnExplosion(scene, boat.mesh.position.clone(), 45, 0xff3300);
               SFX.explosion(1.2);
               const killer = aiBoatsRef.current.find((b) => b.id === p.shooterId);
@@ -166,9 +178,9 @@ function GameWorld({
             }
           }
         });
-        // AI can also hit the player
+        // AI can also hit the player — not if same team
         const shielded = useGameStore.getState().player.shielded;
-        if (!player.dead && !shielded && ppos.distanceTo(playerPos) < 2.8) {
+        if (!player.dead && !shielded && !(playerTeam && shooterBoat?.team === playerTeam) && ppos.distanceTo(playerPos) < 2.8) {
           const newHealth = Math.max(0, player.health - p.damage);
           setPlayer({ health: newHealth });
           SFX.hit();
@@ -180,8 +192,12 @@ function GameWorld({
             SFX.explosion(1.8);
             if (playerBoatRef.current) playerBoatRef.current.visible = false;
             addKill('☠ Your vessel was destroyed', 'red');
-            ScoreManager.onDeath('player');
-            setTimeout(() => { if (playerBoatRef.current) playerBoatRef.current.visible = true; }, 5000);
+            ScoreManager.onKill(p.shooterId!, 'player', settingsRef.current.mode);
+            if (isLBS) {
+              if (!endFired.current) { endFired.current = true; setTimeout(onMatchEnd, 1500); }
+            } else {
+              setTimeout(() => { if (playerBoatRef.current) playerBoatRef.current.visible = true; }, 5000);
+            }
           }
         }
       } else {
@@ -210,7 +226,7 @@ function GameWorld({
 
     // ── AI update (handles movement, shooting, and respawn countdown) ────
     aiBoatsRef.current.forEach((boat) => {
-      const result = updateAI(boat, playerPos, dt, settings.difficulty, aiBoatsRef.current);
+      const result = updateAI(boat, playerPos, dt, settings.difficulty, aiBoatsRef.current, playerTeam);
       if (result.shootTarget && Math.random() < 0.004) {
         const dir = result.shootTarget.clone().sub(boat.mesh.position).setY(0).normalize();
         const muzzle = boat.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
@@ -234,12 +250,21 @@ function GameWorld({
     });
     if (ripplesRef.current.length > 8) ripplesRef.current = ripplesRef.current.slice(-8);
 
-    tickTimer(dt);
+    if (!isLBS) tickTimer(dt);
 
-    // ── Match end when timer hits 0 ──────────────────────────
-    if (useGameStore.getState().matchTimer === 0 && !endFired.current) {
-      endFired.current = true;
-      onMatchEnd();
+    // ── Match end conditions ──────────────────────────────────
+    if (!endFired.current) {
+      if (isLBS) {
+        // LBS: all AI dead → player wins; player already dead → handled above
+        const anyAlive = aiBoatsRef.current.some((b) => b.alive);
+        if (!anyAlive && !useGameStore.getState().player.dead) {
+          endFired.current = true;
+          setTimeout(onMatchEnd, 1000);
+        }
+      } else if (useGameStore.getState().matchTimer === 0) {
+        endFired.current = true;
+        onMatchEnd();
+      }
     }
   });
 
@@ -326,20 +351,30 @@ export default function GameScene() {
   useEffect(() => {
     const botCount = settings.bots;
     const boats: AIBoat[] = [];
-    const teamColors = [
+    const ffaColors = [
       [0xcc1133, 0xff6688], [0x113399, 0x4488ff], [0x228833, 0x44ee88],
       [0x994411, 0xffaa44], [0x6611aa, 0xcc44ff], [0x119988, 0x44ffee],
       [0x885511, 0xffcc44],
     ];
-    for (let i = 0; i < botCount; i++) {
-      const [primary, accent] = teamColors[i % teamColors.length];
-      const team = settings.mode === 'TDM' ? (i % 2 === 0 ? 'red' : 'blue') as 'red' | 'blue' : undefined;
-      boats.push(createAIBoat(`ai${i}`, primary, accent, team));
+    if (settings.mode === 'TDM') {
+      // botCount = bots per team → equal red and blue AI squads
+      for (let i = 0; i < botCount; i++) {
+        boats.push(createAIBoat(`red${i}`, 0xcc1133, 0xff4466, 'red'));
+      }
+      for (let i = 0; i < botCount; i++) {
+        boats.push(createAIBoat(`blue${i}`, 0x0033aa, 0x44aaff, 'blue'));
+      }
+    } else {
+      for (let i = 0; i < botCount; i++) {
+        const [primary, accent] = ffaColors[i % ffaColors.length];
+        boats.push(createAIBoat(`ai${i}`, primary, accent, undefined));
+      }
     }
     aiBoatsRef.current = boats;
 
+    const playerTeamEntry = settings.mode === 'TDM' ? 'blue' as const : undefined;
     ScoreManager.reset([
-      { id: 'player', name: 'YOU' },
+      { id: 'player', name: 'YOU', team: playerTeamEntry },
       ...boats.map((b) => ({ id: b.id, name: b.name, team: b.team })),
     ]);
 
@@ -502,13 +537,23 @@ export default function GameScene() {
 
   const handleMatchEnd = useCallback(() => {
     endMatchAction();
-    const sorted = ScoreManager.getSorted();
-    const top = sorted[0];
-    if (!top) return;
-    const isPlayer  = top.id === 'player';
-    const winner    = isPlayer ? 'VICTORY' : top.name;
-    const color     = isPlayer ? '#00e8d8' : '#ff4466';
-    setEndState({ winner, color });
+    const mode = useGameStore.getState().settings.mode;
+    if (mode === 'LBS') {
+      const playerSurvived = !useGameStore.getState().player.dead;
+      setEndState({ winner: playerSurvived ? 'LAST STANDING' : 'ELIMINATED', color: playerSurvived ? '#44ee88' : '#ff3344' });
+    } else if (mode === 'TDM') {
+      const red  = ScoreManager.teamScores.red;
+      const blue = ScoreManager.teamScores.blue;
+      const winner = blue > red ? 'BLUE TEAM WINS' : red > blue ? 'RED TEAM WINS' : 'DRAW';
+      const color  = blue > red ? '#4488ff' : red > blue ? '#ff3344' : '#ffffff';
+      setEndState({ winner, color });
+    } else {
+      const sorted = ScoreManager.getSorted();
+      const top = sorted[0];
+      if (!top) return;
+      const isPlayer = top.id === 'player';
+      setEndState({ winner: isPlayer ? 'VICTORY' : top.name, color: isPlayer ? '#00e8d8' : '#ff4466' });
+    }
   }, [endMatchAction]);
 
   const handleReturnLobby = useCallback(() => { setScreen('lobby'); }, [setScreen]);
@@ -532,8 +577,9 @@ export default function GameScene() {
     });
 
     // Reset scoreboard
+    const rematchPlayerTeam = useGameStore.getState().settings.mode === 'TDM' ? 'blue' as const : undefined;
     ScoreManager.reset([
-      { id: 'player', name: 'YOU' },
+      { id: 'player', name: 'YOU', team: rematchPlayerTeam },
       ...aiBoatsRef.current.map((b) => ({ id: b.id, name: b.name, team: b.team })),
     ]);
 
@@ -560,7 +606,7 @@ export default function GameScene() {
           onMatchEnd={handleMatchEnd}
         />
         <AIRenderer aiBoatsRef={aiBoatsRef} />
-        <AIBoatLabels aiBoatsRef={aiBoatsRef} />
+        <AIBoatLabels aiBoatsRef={aiBoatsRef} playerTeam={settings.mode === 'TDM' ? 'blue' : null} />
         <PlayerController
           boatRef={playerBoatRef}
           projectiles={projectilesRef}

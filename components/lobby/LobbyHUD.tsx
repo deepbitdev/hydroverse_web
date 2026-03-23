@@ -216,31 +216,13 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
 
       </div>
 
-      {/* Proximity indicators around screen edges */}
-      {!npc && (
-        <div style={{
-          position: 'fixed', top: '50%', right: 24, transform: 'translateY(-50%)',
-          zIndex: 100, display: 'flex', flexDirection: 'column', gap: 12,
-        }}>
-          {NPC_DEFS.map((n) => (
-            <div key={n.id} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              opacity: 0.5, fontSize: 9, letterSpacing: 2,
-              color: 'rgba(255,255,255,0.4)', fontFamily: "'Share Tech Mono'",
-            }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: npcColor(n) }} />
-              {n.label}
-            </div>
-          ))}
-        </div>
-      )}
     </>
   );
 }
 
 function npcColor(npc: NpcDef): string {
   const map: Record<string, string> = {
-    ffa: '#ff3344', tdm: '#4488ff', race: '#44ee88', siege: '#ff9900',
+    ffa: '#ff3344', tdm: '#4488ff', lbs: '#44ee88',
   };
   return map[npc.id] || '#00e8d8';
 }

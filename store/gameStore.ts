@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { RemotePlayerState } from '@/lib/multiplayer';
 
 export type Screen = 'lobby' | 'game';
-export type GameMode = 'FFA' | 'TDM' | 'RACE' | 'SIEGE';
+export type GameMode = 'FFA' | 'TDM' | 'LBS';
 export type Difficulty = 'CADET' | 'VETERAN' | 'ACE';
 export type BotCount = 0 | 3 | 5 | 7;
 
@@ -107,7 +107,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setScreen: (screen) => set({ screen }),
   setSettings: (s) => set((state) => ({ settings: { ...state.settings, ...s } })),
 
-  startMatch: () => set((state) => ({
+  startMatch: () => set(() => ({
     screen: 'game',
     isOnline: false,
     roomCode: null,
@@ -115,7 +115,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     remotePlayers: {},
     matchRunning: true,
     matchEnded: false,
-    matchTimer: state.settings.timeLimit,
+    matchTimer: 180,
     player: { ...DEFAULT_PLAYER },
     killFeed: [],
   })),
@@ -128,10 +128,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     remotePlayers: {},
     matchRunning: true,
     matchEnded: false,
-    matchTimer: state.settings.timeLimit,
+    matchTimer: 180,
     player: { ...DEFAULT_PLAYER },
     killFeed: [],
-    settings: { ...state.settings, bots: 0 }, // no AI bots in online mode
+    settings: { ...state.settings, bots: 0 },
   })),
 
   endMatchAction: () => set({ matchRunning: false, matchEnded: true }),

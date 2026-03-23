@@ -1,6 +1,7 @@
 'use client';
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 
 export interface NpcDef {
@@ -49,46 +50,29 @@ export const NPC_DEFS: NpcDef[] = [
     flagColor: 0x4488ff,
   },
   {
-    id: 'race',
-    mode: 'RACE',
+    id: 'lbs',
+    mode: 'LBS',
     position: [22, 0, -8],
     color: 0x44ee88,
     accentColor: 0xffcc00,
-    label: 'RACE MODE',
-    subtitle: 'FIRST TO CROSS WINS',
+    label: 'LAST BOAT STANDING',
+    subtitle: 'SURVIVE TO THE END',
     greeting: [
-      'Speed is everything here.',
-      'Hit the buoys in order!',
-      'No weapons — just pure throttle.',
-      'Can you master the course?',
+      'No respawns. No second chances.',
+      'Once you sink, you\'re done.',
+      'Outlast every vessel on the water.',
+      'Only the last hull floating wins.',
     ],
     flagColor: 0x44ee88,
-  },
-  {
-    id: 'siege',
-    mode: 'SIEGE',
-    position: [-14, 0, 10],
-    color: 0xff9900,
-    accentColor: 0xff3344,
-    label: 'SIEGE',
-    subtitle: 'DEFEND THE PLATFORM',
-    greeting: [
-      'Protect the floating platform!',
-      'Attackers vs Defenders.',
-      'Hold your ground or sink trying.',
-      'The platform is worth more than your hull.',
-    ],
-    flagColor: 0xff9900,
   },
 ];
 
 interface NpcBoatProps {
   npc: NpcDef;
   isNear: boolean;
-  dialogueIdx: number;
 }
 
-export function NpcBoat({ npc, isNear, dialogueIdx }: NpcBoatProps) {
+export function NpcBoat({ npc, isNear }: NpcBoatProps) {
   const groupRef = useRef<THREE.Group>(null);
   const flagRef = useRef<THREE.Mesh>(null);
 
@@ -152,6 +136,39 @@ export function NpcBoat({ npc, isNear, dialogueIdx }: NpcBoatProps) {
         {isNear && (
           <pointLight color={npc.accentColor} intensity={3} distance={12} position={[0, 2, 0]} />
         )}
+
+        {/* Mode label floating above the vessel */}
+        <Html center distanceFactor={18} position={[0, 5.2, 0]}>
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            pointerEvents: 'none', userSelect: 'none',
+          }}>
+            <div style={{
+              fontFamily: "'Rajdhani', sans-serif",
+              fontSize: 28, fontWeight: 700, letterSpacing: 5,
+              color: `#${npc.color.toString(16).padStart(6, '0')}`,
+              background: 'rgba(0,0,0,0.75)',
+              border: `1px solid #${npc.color.toString(16).padStart(6, '0')}99`,
+              padding: '5px 18px',
+              whiteSpace: 'nowrap',
+              textShadow: `0 0 12px #${npc.color.toString(16).padStart(6, '0')}`,
+              clipPath: 'polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)',
+            }}>
+              {npc.label}
+            </div>
+            <div style={{
+              fontSize: 14, letterSpacing: 4,
+              color: `#${npc.accentColor.toString(16).padStart(6, '0')}`,
+              background: 'rgba(0,0,0,0.65)',
+              border: `1px solid #${npc.color.toString(16).padStart(6, '0')}55`,
+              borderTop: 'none',
+              padding: '2px 14px',
+              whiteSpace: 'nowrap',
+            }}>
+              {npc.subtitle}
+            </div>
+          </div>
+        </Html>
       </group>
     </group>
   );

@@ -54,7 +54,6 @@ export default function LobbyScene() {
             key={npc.id}
             npc={npc}
             isNear={nearNpcId === npc.id}
-            dialogueIdx={0}
           />
         ))}
 

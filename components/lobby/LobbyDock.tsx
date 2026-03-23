@@ -52,8 +52,7 @@ export default function LobbyDock() {
       {[
         { dir: [0, -1], len: 20, x: 0, z: -8 },      // FFA — forward
         { dir: [-1, 0], len: 20, x: -20, z: 0 },     // TDM — left
-        { dir: [1, 0],  len: 20, x: 20, z: 0 },      // RACE — right
-        { dir: [0, 1],  len: 14, x: -8, z: 18 },     // SIEGE — back-left
+        { dir: [1, 0],  len: 20, x: 20, z: 0 },      // LBS — right
       ].map((p, i) => (
         <mesh key={i} position={[p.x, -0.2, p.z]}>
           <boxGeometry args={[p.dir[0] !== 0 ? p.len : 3, 0.3, p.dir[1] !== 0 ? p.len : 3]} />

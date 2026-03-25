@@ -10,6 +10,8 @@ const handle = app.getRequestHandler();
 // ── In-memory room store ──────────────────────────────────────
 // rooms: Map<roomCode, { mode, players: Map<socketId, PlayerInfo> }>
 const rooms = new Map();
+// Pending deletion timers — gives reconnecting players a grace period
+const roomDeleteTimers = new Map();
 
 function genCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -46,9 +48,9 @@ app.prepare().then(() => {
     let currentRoom = null;
 
     // ── Create room ─────────────────────────────────────────
-    socket.on('room:create', ({ name = 'PILOT' } = {}) => {
+    socket.on('room:create', ({ name = 'PILOT', settings } = {}) => {
       const code = genCode();
-      rooms.set(code, { players: new Map() });
+      rooms.set(code, { players: new Map(), settings, matchStart: null });
 
       currentRoom = code;
       socket.join(code);
@@ -56,10 +58,13 @@ app.prepare().then(() => {
       const player = { id: socket.id, name, x: 0, z: 0, ry: 0, health: 100, dead: false };
       rooms.get(code).players.set(socket.id, player);
 
+      console.log(`[room] created ${code} by ${name} (${socket.id})`);
+
       socket.emit('room:joined', {
         roomCode: code,
         playerId: socket.id,
         players: [],          // no other players yet
+        settings,
       });
     });
 
@@ -69,8 +74,17 @@ app.prepare().then(() => {
       const room = rooms.get(code);
 
       if (!room) {
+        console.log(`[room] join failed — code "${code}" not found. Active rooms: [${[...rooms.keys()].join(', ')}]`);
         socket.emit('room:error', { message: 'Room not found. Check the code and try again.' });
         return;
+      }
+
+      console.log(`[room] ${name} joined ${code} (${socket.id})`);
+
+      // Cancel any pending room deletion from a previous disconnect
+      if (roomDeleteTimers.has(code)) {
+        clearTimeout(roomDeleteTimers.get(code));
+        roomDeleteTimers.delete(code);
       }
 
       currentRoom = code;
@@ -85,10 +99,15 @@ app.prepare().then(() => {
         roomCode: code,
         playerId: socket.id,
         players: existing,
+        settings: room.settings,
       });
 
-      // Tell everyone else about the new player
-      socket.to(code).emit('room:player_joined', player);
+      // Broadcast full player list to everyone in room (including joiner)
+      // so no one falls out of sync if they missed an event
+      const allPlayers = [...room.players.values()];
+      const roomSockets = io.sockets.adapter.rooms.get(code);
+      console.log(`[room] ${code} now has ${allPlayers.length} player(s), notifying ${roomSockets?.size ?? 0} socket(s)`);
+      io.to(code).emit('room:players', allPlayers);
     });
 
     // ── Position / health sync (client sends ~20 Hz) ────────
@@ -98,8 +117,11 @@ app.prepare().then(() => {
       if (!room) return;
       const player = room.players.get(socket.id);
       if (player) Object.assign(player, state);
-      // Relay to everyone else in the room
-      socket.to(currentRoom).emit('game:state', { id: socket.id, ...state });
+      // Start the authoritative match clock on the first game:state received
+      if (!room.matchStart) room.matchStart = Date.now();
+      const serverElapsed = (Date.now() - room.matchStart) / 1000;
+      // Relay to everyone else in the room, including elapsed time for timer sync
+      socket.to(currentRoom).emit('game:state', { id: socket.id, ...state, serverElapsed });
     });
 
     // ── Shoot event (for remote visuals) ────────────────────
@@ -134,7 +156,21 @@ app.prepare().then(() => {
       if (!room) return;
       room.players.delete(socket.id);
       socket.to(currentRoom).emit('room:player_left', { playerId: socket.id });
-      if (room.players.size === 0) rooms.delete(currentRoom);
+      const remaining = [...room.players.values()];
+      io.to(currentRoom).emit('room:players', remaining);
+      if (room.players.size === 0) {
+        // Grace period: wait 30s before deleting, so the creator can rejoin after
+        // a brief disconnect (hot reload, network blip, etc.)
+        console.log(`[room] ${currentRoom} empty — will delete in 5 min unless someone rejoins`);
+        const timer = setTimeout(() => {
+          if (rooms.get(currentRoom)?.players.size === 0) {
+            rooms.delete(currentRoom);
+            console.log(`[room] ${currentRoom} deleted (empty timeout)`);
+          }
+          roomDeleteTimers.delete(currentRoom);
+        }, 5 * 60_000);
+        roomDeleteTimers.set(currentRoom, timer);
+      }
     });
   });
 

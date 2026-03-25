@@ -1,8 +1,9 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { connectSocket, disconnectSocket, isSocketConfigured } from '@/lib/socket';
 import type { RoomJoinedPayload } from '@/lib/multiplayer';
+import type { GameMode } from '@/store/gameStore';
 
 interface OnlinePanelProps {
   onClose: () => void;
@@ -11,13 +12,14 @@ interface OnlinePanelProps {
 type View = 'menu' | 'create' | 'join' | 'waiting';
 
 export default function OnlinePanel({ onClose }: OnlinePanelProps) {
-  const { playerName, setPlayerName, setRemotePlayer, startOnlineMatch, addKill } = useGameStore();
+  const { playerName, setPlayerName, setRemotePlayer, startOnlineMatch, addKill, settings, setSettings } = useGameStore();
   const [view, setView]         = useState<View>('menu');
   const [joinCode, setJoinCode] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [players, setPlayers]   = useState<{ id: string; name: string }[]>([]);
   const [error, setError]       = useState('');
   const [myId, setMyId]         = useState('');
+  const myIdRef                 = useRef('');
 
   // Connect socket when panel opens, clean up on close
   useEffect(() => {
@@ -40,15 +42,19 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
     socket.on('room:joined', (payload: RoomJoinedPayload) => {
       setRoomCode(payload.roomCode);
       setMyId(payload.playerId);
+      myIdRef.current = payload.playerId;
       setError('');
       payload.players.forEach((p) => setRemotePlayer(p.id, p));
+      if (payload.settings) setSettings(payload.settings);
       setPlayers(payload.players.map((p) => ({ id: p.id, name: p.name })));
       setView('waiting');
     });
 
-    socket.on('room:player_joined', (p: { id: string; name: string }) => {
-      setRemotePlayer(p.id, { id: p.id, name: p.name, x: 0, z: 0, ry: 0, health: 100, dead: false });
-      setPlayers((prev) => [...prev, { id: p.id, name: p.name }]);
+    socket.on('room:players', (allPlayers: { id: string; name: string }[]) => {
+      // Full authoritative list from server — filter out self
+      const others = allPlayers.filter((p) => p.id !== myIdRef.current);
+      others.forEach((p) => setRemotePlayer(p.id, { id: p.id, name: p.name, x: 0, z: 0, ry: 0, health: 100, dead: false }));
+      setPlayers(others.map((p) => ({ id: p.id, name: p.name })));
     });
 
     socket.on('room:player_left', ({ playerId }: { playerId: string }) => {
@@ -73,7 +79,7 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
     setError('');
     const socket = connectSocket();
     if (!socket) return;
-    socket.emit('room:create', { name: playerName.trim() });
+    socket.emit('room:create', { name: playerName.trim(), settings });
   };
 
   const handleJoin = () => {
@@ -163,20 +169,55 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
     </div>
   );
 
+  const MODES: { id: GameMode; label: string; sub: string; color: string }[] = [
+    { id: 'FFA', label: 'FFA',  sub: 'FREE FOR ALL',       color: '#ff3344' },
+    { id: 'TDM', label: 'TDM',  sub: 'TEAM DEATHMATCH',    color: '#4488ff' },
+    { id: 'LBS', label: 'LBS',  sub: 'LAST BOAT STANDING', color: '#44ee88' },
+  ];
+
   // ── Views ─────────────────────────────────────────────────
   if (view === 'menu') {
+    const activeColor = MODES.find((m) => m.id === settings.mode)?.color ?? 'var(--cyan)';
     return (
       <div style={panelStyle}>
         <div style={boxStyle}>
           <div style={{ fontFamily: "'Rajdhani'", fontSize: 36, fontWeight: 700, letterSpacing: 8, color: 'var(--cyan)', marginBottom: 4 }}>
             ONLINE PvP
           </div>
-          <div style={{ fontSize: 9, letterSpacing: 4, color: 'rgba(0,200,255,0.35)', marginBottom: 32 }}>
+          <div style={{ fontSize: 9, letterSpacing: 4, color: 'rgba(0,200,255,0.35)', marginBottom: 28 }}>
             REAL PLAYERS — NO BOTS
           </div>
+
+          {/* Mode selector */}
+          <div style={{ marginBottom: 24 }}>
+            <span style={label}>GAME MODE</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {MODES.map((m) => {
+                const active = settings.mode === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setSettings({ mode: m.id })}
+                    style={{
+                      flex: 1, padding: '10px 4px',
+                      background: active ? `${m.color}22` : 'transparent',
+                      border: `1px solid ${active ? m.color : 'rgba(255,255,255,0.12)'}`,
+                      color: active ? m.color : 'rgba(255,255,255,0.35)',
+                      cursor: 'pointer', textAlign: 'center',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 16, fontWeight: 700, letterSpacing: 4 }}>{m.label}</div>
+                    <div style={{ fontFamily: "'Share Tech Mono'", fontSize: 8, letterSpacing: 2, marginTop: 2, opacity: 0.7 }}>{m.sub}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {nameField}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-            <button style={btnPrimary()} onClick={() => { handleCreate(); }}>
+            <button style={btnPrimary(activeColor)} onClick={() => { handleCreate(); }}>
               ⊕ CREATE ROOM
             </button>
             <button style={btnPrimary('#ffdd44')} onClick={() => setView('join')}>
@@ -234,9 +275,24 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
         }}>
           {roomCode}
         </div>
-        <div style={{ fontSize: 9, letterSpacing: 3, color: 'rgba(255,255,255,0.25)', marginBottom: 28 }}>
+        <div style={{ fontSize: 9, letterSpacing: 3, color: 'rgba(255,255,255,0.25)', marginBottom: 12 }}>
           SHARE THIS CODE WITH YOUR CREW
         </div>
+
+        {/* Active mode badge */}
+        {(() => {
+          const m = MODES.find((x) => x.id === settings.mode);
+          return m ? (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              border: `1px solid ${m.color}55`, background: `${m.color}11`,
+              padding: '4px 14px', marginBottom: 24,
+            }}>
+              <span style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: 5, color: m.color }}>{m.label}</span>
+              <span style={{ fontSize: 8, letterSpacing: 3, color: `${m.color}99` }}>{m.sub}</span>
+            </div>
+          ) : null;
+        })()}
 
         {/* Player list */}
         <div style={{ marginBottom: 28 }}>

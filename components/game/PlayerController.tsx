@@ -18,9 +18,16 @@ interface PlayerControllerProps {
   projectiles: React.MutableRefObject<Projectile[]>;
   onPositionUpdate: (pos: { x: number; z: number }) => void;
   keys: React.MutableRefObject<Record<string, boolean>>;
+  onShoot?: (
+    origin: THREE.Vector3,
+    dir: THREE.Vector3,
+    weaponId: string,
+    damage: number,
+    speed: number
+  ) => void;
 }
 
-export default function PlayerController({ boatRef, projectiles, onPositionUpdate, keys }: PlayerControllerProps) {
+export default function PlayerController({ boatRef, projectiles, onPositionUpdate, keys, onShoot }: PlayerControllerProps) {
   const { camera } = useThree();
   const { player, setPlayer, settings, addKill } = useGameStore();
   const WEAPON_BOOST_DMG  = 1.75;
@@ -122,6 +129,7 @@ export default function PlayerController({ boatRef, projectiles, onPositionUpdat
         : weapon;
       const proj = createProjectile(scene, muzzle, shootDir, true, boostedWeapon);
       projectiles.current.push(proj);
+      if (onShoot) onShoot(muzzle, shootDir, weapon.id, boostedWeapon.damage, boostedWeapon.projectileSpeed);
       SFX.shoot(weapon.id);
     }
 

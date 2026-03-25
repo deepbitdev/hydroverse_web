@@ -60,6 +60,7 @@ export interface GameState {
   endMatchAction: () => void;
   setPlayer: (p: Partial<PlayerState>) => void;
   tickTimer: (dt: number) => void;
+  syncTimer: (elapsed: number) => void;
   addKill: (msg: string, cls?: string) => void;
   removeKill: (id: number) => void;
 
@@ -140,6 +141,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   tickTimer: (dt) => set((state) => ({
     matchTimer: Math.max(0, state.matchTimer - dt),
+  })),
+
+  syncTimer: (elapsed) => set((state) => ({
+    matchTimer: Math.max(0, state.settings.timeLimit - elapsed),
   })),
 
   addKill: (msg, cls = '') => {

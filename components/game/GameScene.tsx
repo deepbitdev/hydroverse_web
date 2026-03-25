@@ -45,30 +45,31 @@ function AIBoatLabel({ boat, playerTeam }: { boat: AIBoat; playerTeam: 'red' | '
 
   return (
     <group ref={groupRef}>
-      <Html center distanceFactor={8}>
+      <Html center distanceFactor={18}>
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           pointerEvents: 'none', userSelect: 'none',
         }}>
           <div style={{
-            fontFamily: "'Share Tech Mono', monospace",
-            fontSize: 25, letterSpacing: 3, fontWeight: 700,
+            fontFamily: "'Rajdhani', sans-serif",
+            fontSize: 28, fontWeight: 700, letterSpacing: 5,
             color,
             background: 'rgba(0,0,0,0.75)',
             border: `1px solid ${borderAlpha}`,
-            padding: '4px 14px',
+            padding: '5px 18px',
             whiteSpace: 'nowrap',
-            textShadow: `0 0 8px ${shadowColor}`,
+            textShadow: `0 0 12px ${shadowColor}`,
+            clipPath: 'polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)',
           }}>
             {boat.name}
           </div>
           <div style={{
-            fontSize: 18, letterSpacing: 4,
+            fontSize: 14, letterSpacing: 4,
             color,
             background: 'rgba(0,0,0,0.65)',
             border: `1px solid ${borderAlpha.replace('0.7', '0.4')}`,
             borderTop: 'none',
-            padding: '2px 10px',
+            padding: '2px 14px',
             whiteSpace: 'nowrap',
           }}>
             {subLabel}
@@ -101,6 +102,7 @@ function GameWorld({
   keys,
   onPositionUpdate,
   onMatchEnd,
+  onRemoteHit,
 }: {
   playerBoatRef: React.RefObject<THREE.Group>;
   projectilesRef: React.MutableRefObject<Projectile[]>;
@@ -109,6 +111,7 @@ function GameWorld({
   keys: React.MutableRefObject<Record<string, boolean>>;
   onPositionUpdate: (pos: { x: number; z: number }) => void;
   onMatchEnd: () => void;
+  onRemoteHit?: (proj: Projectile) => void;
 }) {
   const { scene } = useThree();
   const { settings, player, setPlayer, addKill, tickTimer, matchRunning } = useGameStore();
@@ -136,6 +139,9 @@ function GameWorld({
       const ppos = p.mesh.position;
 
       if (p.isPlayer) {
+        // Check collision with remote players
+        if (onRemoteHit) onRemoteHit(p);
+
         // vs AI boats — no friendly fire in TDM
         aiBoatsRef.current.forEach((boat) => {
           if (!boat.alive || !p.alive) return;
@@ -255,14 +261,14 @@ function GameWorld({
 
     // ── Match end conditions ──────────────────────────────────
     if (!endFired.current) {
-      if (isLBS) {
-        // LBS: all AI dead → player wins; player already dead → handled above
+      if (isLBS && aiBoatsRef.current.length > 0) {
+        // LBS offline: all AI dead → player wins; player already dead → handled above
         const anyAlive = aiBoatsRef.current.some((b) => b.alive);
         if (!anyAlive && !useGameStore.getState().player.dead) {
           endFired.current = true;
           setTimeout(onMatchEnd, 1000);
         }
-      } else if (useGameStore.getState().matchTimer === 0) {
+      } else if (!isLBS && useGameStore.getState().matchTimer === 0) {
         endFired.current = true;
         onMatchEnd();
       }
@@ -334,7 +340,7 @@ export default function GameScene() {
     settings, setScreen, startMatch, endMatchAction, matchRunning, matchEnded,
     isOnline, roomCode, playerId, playerName,
     remotePlayers, setRemotePlayer, removeRemotePlayer,
-    player, setPlayer, addKill,
+    setPlayer, addKill, syncTimer,
   } = useGameStore();
 
   const playerBoatRef  = useRef<THREE.Group>(null);
@@ -400,11 +406,15 @@ export default function GameScene() {
     if (!socket) return;
 
     // Remote position/health updates
-    socket.on('game:state', (data: GameStatePayload) => {
+    socket.on('game:state', (data: GameStatePayload & { serverElapsed?: number }) => {
       setRemotePlayer(data.id, {
         x: data.x, z: data.z, ry: data.ry,
         health: data.health, dead: data.dead,
       });
+      // Sync timer to server's authoritative elapsed time (skip LBS — no timer)
+      if (data.serverElapsed !== undefined && useGameStore.getState().settings.mode !== 'LBS') {
+        syncTimer(data.serverElapsed);
+      }
     });
 
     // Player joined mid-match
@@ -423,10 +433,10 @@ export default function GameScene() {
     socket.on('game:hit', ({ fromId, damage }: HitPayload) => {
       const state = useGameStore.getState();
       if (state.player.dead || state.player.shielded) return;
-      const newHealth = Math.max(0, player.health - damage);
+      const newHealth = Math.max(0, state.player.health - damage);
       setPlayer({ health: newHealth });
       SFX.hit();
-      if (newHealth <= 0 && !player.dead) {
+      if (newHealth <= 0 && !state.player.dead) {
         setPlayer({ dead: true });
         SFX.explosion(1.8);
         addKill('☠ Your vessel was destroyed', 'red');
@@ -453,10 +463,10 @@ export default function GameScene() {
       socket.off('room:player_left');
       socket.off('game:hit');
       socket.off('game:kill');
-      disconnectSocket();
+      // Do NOT disconnect here — the socket must stay in the room for the whole match.
+      // Disconnection happens in handleReturnLobby when the player explicitly leaves.
     };
-  }, [isOnline, playerId, playerName, player.dead, player.health,
-      setPlayer, setRemotePlayer, removeRemotePlayer, addKill]);
+  }, [isOnline, playerId, playerName, setPlayer, setRemotePlayer, removeRemotePlayer, addKill, syncTimer]);
 
   // ── Online: broadcast local state at ~20 Hz ──────────────
   // We use a requestAnimationFrame loop so it doesn't depend on R3F
@@ -474,12 +484,13 @@ export default function GameScene() {
         syncAccum.current = 0;
         const boat = playerBoatRef.current;
         const socket = connectSocket();
+        const { health, dead } = useGameStore.getState().player;
         socket?.emit('game:state', {
           x: boat.position.x,
           z: boat.position.z,
           ry: boat.rotation.y,
-          health: player.health,
-          dead: player.dead,
+          health,
+          dead,
         });
       }
       rafId = requestAnimationFrame(loop);
@@ -487,7 +498,7 @@ export default function GameScene() {
 
     rafId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafId);
-  }, [isOnline, player.health, player.dead]);
+  }, [isOnline]);
 
   // ── Online: detect hits on remote players ────────────────
   // Checked in PlayerController via onShoot callback — we wire it here
@@ -557,7 +568,10 @@ export default function GameScene() {
     }
   }, [endMatchAction]);
 
-  const handleReturnLobby = useCallback(() => { setScreen('lobby'); }, [setScreen]);
+  const handleReturnLobby = useCallback(() => {
+    if (isOnline) disconnectSocket();
+    setScreen('lobby');
+  }, [setScreen, isOnline]);
   const handleRematch = useCallback(() => {
     // Clear lingering projectiles
     projectilesRef.current = [];
@@ -606,6 +620,7 @@ export default function GameScene() {
           keys={keys}
           onPositionUpdate={setPlayerPos}
           onMatchEnd={handleMatchEnd}
+          onRemoteHit={remoteHitCheck}
         />
         <AIRenderer aiBoatsRef={aiBoatsRef} />
         <AIBoatLabels aiBoatsRef={aiBoatsRef} playerTeam={settings.mode === 'TDM' ? 'blue' : null} />
@@ -614,6 +629,7 @@ export default function GameScene() {
           projectiles={projectilesRef}
           onPositionUpdate={setPlayerPos}
           keys={keys}
+          onShoot={handlePlayerShoot}
         />
 
         {/* ── Remote players (PvP) ─────────────────────── */}

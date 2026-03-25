@@ -69,30 +69,31 @@ export default function RemotePlayer({ id, x, z, ry, dead, name }: RemotePlayerP
 
       {/* Enemy label */}
       {!dead && (
-        <Html center distanceFactor={8} position={[0, 3.8, 0]}>
+        <Html center distanceFactor={18} position={[0, 5.2, 0]}>
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             pointerEvents: 'none', userSelect: 'none',
           }}>
             <div style={{
-              fontFamily: "'Share Tech Mono', monospace",
-              fontSize: 18, letterSpacing: 3, fontWeight: 700,
+              fontFamily: "'Rajdhani', sans-serif",
+              fontSize: 28, fontWeight: 700, letterSpacing: 5,
               color: '#ff3355',
               background: 'rgba(0,0,0,0.75)',
               border: '1px solid rgba(255,50,80,0.7)',
-              padding: '4px 14px',
+              padding: '5px 18px',
               whiteSpace: 'nowrap',
-              textShadow: '0 0 8px rgba(255,50,80,0.8)',
+              textShadow: '0 0 12px rgba(255,50,80,0.9)',
+              clipPath: 'polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)',
             }}>
               {name}
             </div>
             <div style={{
-              fontSize: 13, letterSpacing: 4,
+              fontSize: 14, letterSpacing: 4,
               color: '#ff3355',
               background: 'rgba(0,0,0,0.65)',
               border: '1px solid rgba(255,50,80,0.4)',
               borderTop: 'none',
-              padding: '2px 10px',
+              padding: '2px 14px',
               whiteSpace: 'nowrap',
             }}>
               ENEMY

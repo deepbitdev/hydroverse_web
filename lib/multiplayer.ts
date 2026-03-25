@@ -15,6 +15,7 @@ export interface RoomJoinedPayload {
   roomCode: string;
   playerId: string;
   players: RemotePlayerState[];
+  settings: any;
 }
 
 export interface GameStatePayload {

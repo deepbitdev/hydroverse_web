@@ -6,7 +6,7 @@ import { useGameStore } from '@/store/gameStore';
 import AnimeWater from '@/components/AnimeWater';
 import SkyDome from '@/components/SkyDome';
 import { PalmRing } from '@/components/PalmTree';
-import { FestivalStage, Buoys, CrowdDots, SceneLights } from '@/components/WorldDecorations';
+import { FestivalStage, Buoys, CrowdDots, SceneLights, BattlePillars } from '@/components/WorldDecorations';
 import BoatMesh from '@/components/BoatMesh';
 import GameHUD from './GameHUD';
 import EndScreen from './EndScreen';
@@ -234,11 +234,12 @@ function GameWorld({
     // ── AI update (handles movement, shooting, and respawn countdown) ────
     aiBoatsRef.current.forEach((boat) => {
       const result = updateAI(boat, playerPos, dt, settings.difficulty, aiBoatsRef.current, playerTeam);
-      if (result.shootTarget && Math.random() < 0.004) {
+      if (result.shootTarget) {
         const dir = result.shootTarget.clone().sub(boat.mesh.position).setY(0).normalize();
         const muzzle = boat.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
-        const proj = createProjectile(scene, muzzle, dir, false, { damage: 18, projectileSpeed: 25 }, boat.id);
+        const proj = createProjectile(scene, muzzle, dir, false, { damage: 18, projectileSpeed: 28 }, boat.id);
         projectilesRef.current.push(proj);
+        SFX.shoot('machinegun');
       }
     });
 
@@ -281,6 +282,7 @@ function GameWorld({
       <SkyDome />
       <PalmRing count={20} radius={155} />
       <FestivalStage />
+      <BattlePillars />
       <Buoys />
       <CrowdDots />
       <FireworksSystem />
@@ -356,7 +358,7 @@ export default function GameScene() {
 
   // ── Init AI boats (skipped when online: bots=0) ──────────
   useEffect(() => {
-    const botCount = settings.bots;
+    const botCount = isOnline ? 0 : settings.bots;
     const boats: AIBoat[] = [];
     const ffaColors = [
       [0xcc1133, 0xff6688], [0x113399, 0x4488ff], [0x228833, 0x44ee88],
@@ -452,9 +454,10 @@ export default function GameScene() {
     });
 
     // Kill broadcast
-    socket.on('game:kill', ({ killerName, victimName, victimId }: KillPayload) => {
+    socket.on('game:kill', ({ killerId, killerName, victimName, victimId }: KillPayload) => {
       if (victimId === playerId) return; // already handled in game:hit
       addKill(`⊕ ${killerName} destroyed ${victimName}`, '');
+      ScoreManager.onKill(killerId, victimId, useGameStore.getState().settings.mode);
     });
 
     return () => {

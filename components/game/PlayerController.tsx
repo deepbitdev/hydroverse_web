@@ -139,10 +139,14 @@ export default function PlayerController({ boatRef, projectiles, onPositionUpdat
       if (overheated.current && weaponHeat.current <= 0) overheated.current = false;
     }
 
-    // ── Boundary ───────────────────────────────────────────────
-    const boundary = 150;
-    boat.position.x = THREE.MathUtils.clamp(boat.position.x, -boundary, boundary);
-    boat.position.z = THREE.MathUtils.clamp(boat.position.z, -boundary, boundary);
+    // ── Boundary — circular arena ──────────────────────────────
+    const bx = boat.position.x, bz = boat.position.z;
+    const br = Math.sqrt(bx * bx + bz * bz);
+    if (br > 85) {
+      boat.position.x = (bx / br) * 85;
+      boat.position.z = (bz / br) * 85;
+      speedRef.current *= 0.5; // dampen speed at wall
+    }
 
     onPositionUpdate({ x: boat.position.x, z: boat.position.z });
     SFX.updateEngine(Math.abs(speedRef.current) / BOAT_SPEED, boosting);

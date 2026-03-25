@@ -65,12 +65,18 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
       setError(message);
     });
 
+    // Listen for host starting the game
+    socket.on('room:started', () => {
+      startOnlineMatch(roomCode, myIdRef.current);
+    });
+
     return () => {
       socket.off('connect_error');
       socket.off('room:joined');
       socket.off('room:player_joined');
       socket.off('room:player_left');
       socket.off('room:error');
+      socket.off('room:started');
     };
   }, [setRemotePlayer]);
 
@@ -92,7 +98,9 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
   };
 
   const handleLaunch = () => {
-    startOnlineMatch(roomCode, myId);
+    // Tell server to start the match for everyone
+    const socket = connectSocket();
+    socket?.emit('room:start');
   };
 
   const handleCancel = () => {

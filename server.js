@@ -110,6 +110,13 @@ app.prepare().then(() => {
       io.to(code).emit('room:players', allPlayers);
     });
 
+    // ── Start Match ──────────────────────────────────────────
+    socket.on('room:start', () => {
+      if (!currentRoom) return;
+      // Notify everyone in the room (including sender) to switch scene
+      io.to(currentRoom).emit('room:started');
+    });
+
     // ── Position / health sync (client sends ~20 Hz) ────────
     socket.on('game:state', (state) => {
       if (!currentRoom) return;

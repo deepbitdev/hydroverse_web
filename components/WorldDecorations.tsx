@@ -2,6 +2,7 @@
 import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { PILLAR_POSITIONS } from '@/lib/arenaLayout';
 
 export function FestivalStage() {
   const screenRef = useRef<THREE.Mesh>(null);
@@ -111,6 +112,68 @@ export function CrowdDots() {
       </bufferGeometry>
       <pointsMaterial color={0xffcc88} size={1.2} sizeAttenuation />
     </points>
+  );
+}
+
+// Pillar heights/accent colours — deterministic so they always match
+const PILLAR_META = PILLAR_POSITIONS.map((_, i) => ({
+  height:  9 + (i % 5) * 2.5,          // 9 – 19 units tall
+  color:   [0x556677, 0x445566, 0x667788, 0x334455, 0x778899][i % 5],
+  accent:  [0x00e8d8, 0xff6600, 0xffdd00, 0xff3388, 0x44ff88][i % 5],
+  cracked: i % 3 === 0,
+}));
+
+export function BattlePillars() {
+  return (
+    <group>
+      {PILLAR_POSITIONS.map(([x, z], i) => {
+        const { height, color, accent, cracked } = PILLAR_META[i];
+        const topY = height / 2;
+        return (
+          <group key={i} position={[x, 0, z]}>
+            {/* Main pillar shaft */}
+            <mesh position={[0, height / 2, 0]} castShadow>
+              <cylinderGeometry args={[1.8, 2.2, height, 8]} />
+              <meshLambertMaterial color={color} />
+            </mesh>
+
+            {/* Base ring */}
+            <mesh position={[0, 0.3, 0]}>
+              <cylinderGeometry args={[3, 3.2, 0.6, 8]} />
+              <meshLambertMaterial color={color} />
+            </mesh>
+
+            {/* Cap / broken top */}
+            {cracked ? (
+              // Jagged broken cap
+              <mesh position={[0, topY + 0.6, 0]} rotation={[0, Math.PI * (i * 0.37), 0]}>
+                <cylinderGeometry args={[1.2, 1.8, 1.2, 5]} />
+                <meshLambertMaterial color={color} />
+              </mesh>
+            ) : (
+              // Flat cap with beacon light
+              <>
+                <mesh position={[0, topY + 0.5, 0]}>
+                  <cylinderGeometry args={[2.1, 1.8, 1, 8]} />
+                  <meshLambertMaterial color={color} />
+                </mesh>
+                <mesh position={[0, topY + 1.2, 0]}>
+                  <sphereGeometry args={[0.55, 6, 6]} />
+                  <meshBasicMaterial color={accent} />
+                </mesh>
+                <pointLight color={accent} intensity={2.5} distance={22} position={[0, topY + 1.4, 0]} />
+              </>
+            )}
+
+            {/* Waterline splash ring */}
+            <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <ringGeometry args={[2.2, 3.4, 12]} />
+              <meshBasicMaterial color={0x66aacc} transparent opacity={0.35} side={THREE.DoubleSide} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
   );
 }
 

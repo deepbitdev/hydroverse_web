@@ -1,5 +1,18 @@
 // Shared types for the multiplayer system
 
+export interface PlayerCustomization {
+  primaryColor: number;     // Hex color for the hull
+  neonColor: number | null; // Hex color for underglow
+  hullPattern: number;      // Index for shader pattern
+  decalId: string | null;   // Visual sticker/logo
+  glowIntensity: number;    // Underglow brightness
+  partUpgrades: {
+    engine: number;         // 0-3 level
+    rudder: number;         // 0-3 level
+    hull: number;           // 0-3 level
+  };
+}
+
 export interface RemotePlayerState {
   id: string;
   name: string;
@@ -9,6 +22,7 @@ export interface RemotePlayerState {
   ry: number;
   health: number;
   dead: boolean;
+  customization?: PlayerCustomization;
 }
 
 export interface RoomJoinedPayload {

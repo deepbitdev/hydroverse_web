@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { RemotePlayerState } from '@/lib/multiplayer';
+import type { RemotePlayerState, PlayerCustomization } from '@/lib/multiplayer';
 
 export type Screen = 'lobby' | 'game';
 export type GameMode = 'FFA' | 'TDM' | 'LBS';
@@ -51,6 +51,7 @@ export interface GameState {
   playerId: string | null;
   playerName: string;
   remotePlayers: Record<string, RemotePlayerState>;
+  playerCustomization: PlayerCustomization;
 
   // actions
   setScreen: (s: Screen) => void;
@@ -73,6 +74,7 @@ export interface GameState {
   setRemotePlayer: (id: string, state: Partial<RemotePlayerState>) => void;
   removeRemotePlayer: (id: string) => void;
   clearRemotePlayers: () => void;
+  setPlayerCustomization: (p: PlayerCustomization) => void;
 }
 
 const DEFAULT_PLAYER: PlayerState = {
@@ -103,6 +105,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerId: null,
   playerName: 'PILOT',
   remotePlayers: {},
+  playerCustomization: {
+    primaryColor: 0x0066cc,
+    neonColor: null,
+    hullPattern: 0,
+    decalId: null,
+    glowIntensity: 0,
+    partUpgrades: { engine: 0, rudder: 0, hull: 0 },
+  },
 
   // ── Actions ──────────────────────────────────────────────
   setScreen: (screen) => set({ screen }),
@@ -200,4 +210,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   clearRemotePlayers: () => set({ remotePlayers: {} }),
+
+  setPlayerCustomization: (p) => set({ playerCustomization: p }),
 }));

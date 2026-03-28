@@ -4,6 +4,7 @@ import { useGameStore } from '@/store/gameStore';
 import { NPC_DEFS, NpcDef } from './NpcBoats';
 import type { GameMode } from '@/store/gameStore';
 import OnlinePanel from './OnlinePanel';
+import GaragePanel from './GaragePanel';
 
 interface LobbyHUDProps {
   nearNpcId: string | null;
@@ -14,6 +15,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
   const [dialogueIdx, setDialogueIdx] = useState(0);
   const [showPanel, setShowPanel] = useState(false);
   const [showOnline, setShowOnline] = useState(false);
+  const [showGarage, setShowGarage] = useState(false);
   const [typedText, setTypedText] = useState('');
   const prevNpcId = useRef<string | null>(null);
   const typeTimer = useRef<NodeJS.Timeout | null>(null);
@@ -48,6 +50,8 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
     if (nextIdx >= npc.greeting.length) {
       if (npc.openOnline) {
         setShowOnline(true);
+      } else if (npc.openGarage) {
+        setShowGarage(true);
       } else {
         setShowPanel(true);
       }
@@ -66,6 +70,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
   return (
     <>
       {showOnline && <OnlinePanel onClose={() => setShowOnline(false)} />}
+      {showGarage && <GaragePanel onClose={() => setShowGarage(false)} />}
 
       {/* Bottom controls hint */}
       <div style={{
@@ -210,7 +215,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
 
 function npcColor(npc: NpcDef): string {
   const map: Record<string, string> = {
-    ffa: '#ff3344', tdm: '#4488ff', lbs: '#44ee88',
+    ffa: '#ff3344', tdm: '#4488ff', lbs: '#44ee88', garage: '#ffcc00',
   };
   return map[npc.id] || '#00e8d8';
 }

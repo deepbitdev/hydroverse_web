@@ -12,7 +12,16 @@ interface OnlinePanelProps {
 type View = 'menu' | 'create' | 'join' | 'waiting';
 
 export default function OnlinePanel({ onClose }: OnlinePanelProps) {
-  const { playerName, setPlayerName, setRemotePlayer, startOnlineMatch, addKill, settings, setSettings } = useGameStore();
+  const { 
+    playerName, 
+    setPlayerName, 
+    setRemotePlayer, 
+    startOnlineMatch, 
+    settings, 
+    setSettings,
+    playerCustomization 
+  } = useGameStore();
+  
   const [view, setView]         = useState<View>('menu');
   const [joinCode, setJoinCode] = useState('');
   const [roomCode, setRoomCode] = useState('');
@@ -50,10 +59,10 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
       setView('waiting');
     });
 
-    socket.on('room:players', (allPlayers: { id: string; name: string }[]) => {
+    socket.on('room:players', (allPlayers: any[]) => {
       // Full authoritative list from server — filter out self
       const others = allPlayers.filter((p) => p.id !== myIdRef.current);
-      others.forEach((p) => setRemotePlayer(p.id, { id: p.id, name: p.name, x: 0, z: 0, ry: 0, health: 100, dead: false }));
+      others.forEach((p) => setRemotePlayer(p.id, p));
       setPlayers(others.map((p) => ({ id: p.id, name: p.name })));
     });
 
@@ -85,7 +94,7 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
     setError('');
     const socket = connectSocket();
     if (!socket) return;
-    socket.emit('room:create', { name: playerName.trim(), settings });
+    socket.emit('room:create', { name: playerName.trim(), settings, customization: playerCustomization });
   };
 
   const handleJoin = () => {
@@ -94,7 +103,11 @@ export default function OnlinePanel({ onClose }: OnlinePanelProps) {
     setError('');
     const socket = connectSocket();
     if (!socket) return;
-    socket.emit('room:join', { roomCode: joinCode.trim().toUpperCase(), name: playerName.trim() });
+    socket.emit('room:join', { 
+      roomCode: joinCode.trim().toUpperCase(), 
+      name: playerName.trim(),
+      customization: playerCustomization 
+    });
   };
 
   const handleLaunch = () => {

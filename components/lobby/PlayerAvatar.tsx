@@ -2,6 +2,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { useGameStore } from '@/store/gameStore';
 import { NPC_DEFS } from './NpcBoats';
 
 const WALK_SPEED = 8;
@@ -23,6 +24,7 @@ export default function PlayerAvatar({ onNearNpc, keys }: PlayerAvatarProps) {
   const cameraYaw = useRef(0);
   const nearRef = useRef<string | null>(null);
   const { camera } = useThree();
+  const { playerCustomization } = useGameStore();
 
   useFrame(({ clock }, dt) => {
     if (!groupRef.current) return;
@@ -74,11 +76,11 @@ export default function PlayerAvatar({ onNearNpc, keys }: PlayerAvatarProps) {
       {/* Player boat hull — distinct cyan color */}
       <mesh>
         <boxGeometry args={[2.0, 0.5, 4.8]} />
-        <meshLambertMaterial color={0x0066cc} />
+        <meshLambertMaterial color={playerCustomization?.primaryColor ?? 0x0066cc} />
       </mesh>
       <mesh position={[0, 0, -3.3]} rotation={[Math.PI / 2, Math.PI / 4, 0]}>
         <coneGeometry args={[1.0, 2.0, 4]} />
-        <meshLambertMaterial color={0x0066cc} />
+        <meshLambertMaterial color={playerCustomization?.primaryColor ?? 0x0066cc} />
       </mesh>
       <mesh position={[0, 0.6, 0.3]}>
         <boxGeometry args={[1.2, 0.7, 1.6]} />
@@ -86,15 +88,19 @@ export default function PlayerAvatar({ onNearNpc, keys }: PlayerAvatarProps) {
       </mesh>
       <mesh position={[0, 0.1, 2.3]}>
         <boxGeometry args={[1.0, 0.3, 0.5]} />
-        <meshBasicMaterial color={0x00e8d8} />
+        <meshBasicMaterial color={playerCustomization?.neonColor ?? 0x00e8d8} />
       </mesh>
       <mesh position={[0, 0.26, 0]}>
         <boxGeometry args={[2.1, 0.08, 4.9]} />
-        <meshBasicMaterial color={0x00e8d8} />
+        <meshBasicMaterial color={playerCustomization?.neonColor ?? 0x00e8d8} />
       </mesh>
 
       {/* Player indicator light */}
-      <pointLight color={0x00e8d8} intensity={2} distance={8} position={[0, 1.5, 0]} />
+      <pointLight 
+        color={playerCustomization?.neonColor ?? 0x00e8d8} 
+        intensity={(playerCustomization?.glowIntensity ?? 0) > 0 ? playerCustomization.glowIntensity : 2} 
+        distance={8} position={[0, -0.5, 0]} 
+      />
     </group>
   );
 }

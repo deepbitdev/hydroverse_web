@@ -240,7 +240,14 @@ export function updateAI(
     else if (boat.state === 'attack') turnAggression = 0.95;
     else if (boat.state === 'chase') turnAggression = 1.25;
 
-    let turn = angle * boat.turnSpeed * turnAggression * speedMult;
+    // ACE difficulty: Add a slight "wobble" or strafe to make them harder to hit
+    let finalAngle = angle;
+    if (difficulty === 'ACE' && boat.state === 'attack') {
+      const wobble = Math.sin(Date.now() * 0.005) * 0.35;
+      finalAngle += wobble;
+    }
+
+    let turn = finalAngle * boat.turnSpeed * turnAggression * speedMult;
 
     // Anti-deadlock when almost 180° behind
     if (Math.abs(angle) > 2.7) {

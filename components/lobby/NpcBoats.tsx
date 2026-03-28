@@ -15,6 +15,7 @@ export interface NpcDef {
   greeting: string[];
   flagColor: number;
   openOnline?: boolean; // opens OnlinePanel instead of launching a local match
+  openGarage?: boolean; // opens the customization/upgrade menu
 }
 
 export const NPC_DEFS: NpcDef[] = [
@@ -82,6 +83,23 @@ export const NPC_DEFS: NpcDef[] = [
       'Only the last hull floating wins.',
     ],
     flagColor: 0x44ee88,
+  },
+  {
+    id: 'garage',
+    mode: 'GARAGE',
+    position: [-18, 0, 18],
+    color: 0xffcc00,
+    accentColor: 0x222222,
+    label: 'HYDRO-GARAGE',
+    subtitle: 'UPGRADES & STYLE',
+    greeting: [
+      'Looking to spend some Scrap, captain?',
+      'We can make her faster. Much faster.',
+      'Style is just as important as speed.',
+      'Time for some fresh neon and a turbo tune?',
+    ],
+    flagColor: 0xffcc00,
+    openGarage: true,
   },
 ];
 

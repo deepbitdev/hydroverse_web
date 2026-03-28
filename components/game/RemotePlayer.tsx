@@ -3,7 +3,7 @@ import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
-import { remotePlayerColor } from '@/lib/multiplayer';
+import { remotePlayerColor, PlayerCustomization } from '@/lib/multiplayer';
 
 interface RemotePlayerProps {
   id: string;
@@ -13,9 +13,10 @@ interface RemotePlayerProps {
   health: number;
   dead: boolean;
   name: string;
+  customization?: PlayerCustomization;
 }
 
-export default function RemotePlayer({ id, x, z, ry, dead, name }: RemotePlayerProps) {
+export default function RemotePlayer({ id, x, z, ry, dead, name, customization }: RemotePlayerProps) {
   const groupRef = useRef<THREE.Group>(null);
 
   // Track interpolation targets via ref to avoid stale closures
@@ -23,6 +24,9 @@ export default function RemotePlayer({ id, x, z, ry, dead, name }: RemotePlayerP
   target.current = { x, z, ry };
 
   const [primary, accent] = remotePlayerColor(id);
+  // Use the remote player's custom neon color if they have one
+  const finalAccent = customization?.neonColor ?? accent;
+  const glowIntensity = customization?.glowIntensity ?? 1.5;
 
   useFrame((_, dt) => {
     const g = groupRef.current;
@@ -47,12 +51,12 @@ export default function RemotePlayer({ id, x, z, ry, dead, name }: RemotePlayerP
       {/* Hull */}
       <mesh>
         <boxGeometry args={[2.2, 0.55, 5.2]} />
-        <meshLambertMaterial color={primary} />
+        <meshLambertMaterial color={customization?.primaryColor ?? primary} />
       </mesh>
       {/* Bow */}
       <mesh position={[0, 0, -3.6]} rotation={[Math.PI / 2, Math.PI / 4, 0]}>
         <coneGeometry args={[1.1, 2.2, 4]} />
-        <meshLambertMaterial color={primary} />
+        <meshLambertMaterial color={customization?.primaryColor ?? primary} />
       </mesh>
       {/* Cabin */}
       <mesh position={[0, 0.6, 0.3]}>
@@ -62,10 +66,10 @@ export default function RemotePlayer({ id, x, z, ry, dead, name }: RemotePlayerP
       {/* Accent stripe */}
       <mesh position={[0, 0.29, 0]}>
         <boxGeometry args={[2.3, 0.08, 5.3]} />
-        <meshBasicMaterial color={accent} />
+        <meshBasicMaterial color={finalAccent} />
       </mesh>
       {/* Point light marker */}
-      <pointLight color={accent} intensity={1.5} distance={6} position={[0, 2, 0]} />
+      <pointLight color={finalAccent} intensity={glowIntensity} distance={6} position={[0, -0.5, 0]} />
 
       {/* Enemy label */}
       {!dead && (

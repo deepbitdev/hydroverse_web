@@ -48,14 +48,14 @@ app.prepare().then(() => {
     let currentRoom = null;
 
     // ── Create room ─────────────────────────────────────────
-    socket.on('room:create', ({ name = 'PILOT', settings } = {}) => {
+    socket.on('room:create', ({ name = 'PILOT', settings, customization } = {}) => {
       const code = genCode();
       rooms.set(code, { players: new Map(), settings, matchStart: null });
 
       currentRoom = code;
       socket.join(code);
 
-      const player = { id: socket.id, name, x: 0, z: 0, ry: 0, health: 100, dead: false };
+      const player = { id: socket.id, name, x: 0, z: 0, ry: 0, health: 100, dead: false, customization };
       rooms.get(code).players.set(socket.id, player);
 
       console.log(`[room] created ${code} by ${name} (${socket.id})`);
@@ -69,7 +69,7 @@ app.prepare().then(() => {
     });
 
     // ── Join room ───────────────────────────────────────────
-    socket.on('room:join', ({ roomCode, name = 'PILOT' } = {}) => {
+    socket.on('room:join', ({ roomCode, name = 'PILOT', customization } = {}) => {
       const code = roomCode?.toUpperCase?.();
       const room = rooms.get(code);
 
@@ -91,7 +91,7 @@ app.prepare().then(() => {
       socket.join(code);
 
       const existing = [...room.players.values()];
-      const player = { id: socket.id, name, x: 0, z: 0, ry: 0, health: 100, dead: false };
+      const player = { id: socket.id, name, x: 0, z: 0, ry: 0, health: 100, dead: false, customization };
       room.players.set(socket.id, player);
 
       // Tell joiner who's already here
@@ -108,6 +108,18 @@ app.prepare().then(() => {
       const roomSockets = io.sockets.adapter.rooms.get(code);
       console.log(`[room] ${code} now has ${allPlayers.length} player(s), notifying ${roomSockets?.size ?? 0} socket(s)`);
       io.to(code).emit('room:players', allPlayers);
+    });
+
+    // ── Update Customization (Mid-lobby) ────────────────────
+    socket.on('room:update_customization', (customization) => {
+      if (!currentRoom) return;
+      const room = rooms.get(currentRoom);
+      if (!room) return;
+      const player = room.players.get(socket.id);
+      if (player) {
+        player.customization = customization;
+        io.to(currentRoom).emit('room:players', [...room.players.values()]);
+      }
     });
 
     // ── Start Match ──────────────────────────────────────────
@@ -135,6 +147,13 @@ app.prepare().then(() => {
     socket.on('game:shoot', (data) => {
       if (!currentRoom) return;
       socket.to(currentRoom).emit('game:shoot', { fromId: socket.id, ...data });
+    });
+
+    // ── Powerup Pickup Sync ─────────────────────────────────
+    socket.on('game:powerup_collected', ({ powerupId }) => {
+      if (!currentRoom) return;
+      // Broadcast to everyone so the powerup is removed from their scene
+      io.to(currentRoom).emit('game:powerup_collected', { powerupId, by: socket.id });
     });
 
     // ── Hit relay — shooter detected hit, tells victim ──────

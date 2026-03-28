@@ -114,7 +114,7 @@ function GameWorld({
   onRemoteHit?: (proj: Projectile) => void;
 }) {
   const { scene } = useThree();
-  const { settings, player, setPlayer, addKill, tickTimer, matchRunning } = useGameStore();
+  const { settings, player, setPlayer, addKill, tickTimer, matchRunning, playerCustomization } = useGameStore();
   const endFired = useRef(false);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -290,7 +290,18 @@ function GameWorld({
 
       {/* Player boat */}
       <group ref={playerBoatRef} position={[0, 0.25, 0]}>
-        <BoatMesh primary={0x0044bb} accent={0x00e8d8} isPlayer />
+        <BoatMesh
+          primary={playerCustomization?.primaryColor ?? 0x0066cc}
+          accent={playerCustomization?.neonColor ?? 0x00e8d8}
+          isPlayer
+        />
+        {/* Neon underglow light */}
+        <pointLight
+          color={playerCustomization?.neonColor ?? 0x00e8d8}
+          intensity={playerCustomization?.neonColor ? (playerCustomization.glowIntensity || 2) : 0}
+          distance={8}
+          position={[0, -0.5, 0]}
+        />
       </group>
     </>
   );
@@ -419,18 +430,6 @@ export default function GameScene() {
       }
     });
 
-    // Player joined mid-match
-    socket.on('room:player_joined', (p: { id: string; name: string }) => {
-      setRemotePlayer(p.id, { id: p.id, name: p.name, x: 0, z: 0, ry: 0, health: 100, dead: false });
-      addKill(`⚓ ${p.name} joined the battle`, 'gold');
-    });
-
-    // Player left
-    socket.on('room:player_left', ({ playerId: pid }: { playerId: string }) => {
-      removeRemotePlayer(pid);
-      addKill(`⚓ A pilot disconnected`, '');
-    });
-
     // We got hit by a remote player
     socket.on('game:hit', ({ fromId, damage }: HitPayload) => {
       const state = useGameStore.getState();
@@ -462,8 +461,6 @@ export default function GameScene() {
 
     return () => {
       socket.off('game:state');
-      socket.off('room:player_joined');
-      socket.off('room:player_left');
       socket.off('game:hit');
       socket.off('game:kill');
       // Do NOT disconnect here — the socket must stay in the room for the whole match.
@@ -646,6 +643,7 @@ export default function GameScene() {
             ry={rp.ry}
             health={rp.health}
             dead={rp.dead}
+            customization={rp.customization}
           />
         ))}
 

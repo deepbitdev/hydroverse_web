@@ -98,15 +98,17 @@ export default function PlayerController({ boatRef, projectiles, onPositionUpdat
     camera.position.lerp(boat.position.clone().add(camOffset), 0.1);
     camera.lookAt(boat.position.clone().add(new THREE.Vector3(0, 0.5, 0)));
 
+    // ── Sync weapon index from store (powerups can switch weapon) ──
+    // Must run BEFORE key input so a powerup switch is applied first,
+    // then user input builds on top — prevents stale-store revert glitch.
+    if (player.weaponIdx !== weaponIdx.current) {
+      weaponIdx.current = player.weaponIdx;
+    }
+
     // ── Weapon select ──────────────────────────────────────────
     if (k['KeyQ']) { k['KeyQ'] = false; weaponIdx.current = (weaponIdx.current - 1 + WEAPONS.length) % WEAPONS.length; SFX.shoot('machinegun'); }
     if (k['KeyE']) { k['KeyE'] = false; weaponIdx.current = (weaponIdx.current + 1) % WEAPONS.length; }
     setPlayer({ weaponIdx: weaponIdx.current, speed: speedRef.current });
-
-    // ── Sync weapon index from store (powerups can switch weapon) ──
-    if (player.weaponIdx !== weaponIdx.current) {
-      weaponIdx.current = player.weaponIdx;
-    }
 
     // ── Shoot ──────────────────────────────────────────────────
     fireTimer.current -= dt;

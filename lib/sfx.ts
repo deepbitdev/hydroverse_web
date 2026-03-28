@@ -157,4 +157,14 @@ export const SFX = {
       o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.08);
     });
   },
+
+  alarm() {
+    play((c, out) => {
+      const t = c.currentTime;
+      const o = c.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(880, t); o.frequency.exponentialRampToValueAtTime(440, t + 0.5);
+      const g = c.createGain(); g.gain.setValueAtTime(0.15, t); g.gain.linearRampToValueAtTime(0, t + 0.5);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + 0.5);
+    });
+  },
 };

@@ -2,10 +2,9 @@ import { create } from 'zustand';
 import type { RemotePlayerState, PlayerCustomization, PlayerInventory } from '@/lib/multiplayer';
 import { TokenManager } from '@/lib/tokenManager';
 import { InventoryManager } from '@/lib/inventoryManager';
-import { TutorialManager } from '@/lib/tutorialManager';
 import { PART_UPGRADES, SELL_PERCENT, PartCategory } from '@/lib/partData';
 
-export type Screen = 'tutorial' | 'lobby' | 'game';
+export type Screen = 'lobby' | 'game';
 export type GameMode = 'FFA' | 'TDM' | 'LBS';
 export type Difficulty = 'CADET' | 'VETERAN' | 'ACE';
 export type BotCount = 0 | 3 | 5 | 7;
@@ -86,7 +85,6 @@ export interface GameState {
   purchasePart: (category: PartCategory, level: number) => void;
   sellPart: (category: PartCategory, level: number) => void;
   purchaseVisual: (type: 'hull' | 'neon', value: number | null, cost: number) => boolean;
-  completeTutorial: () => void;
 }
 
 const DEFAULT_PLAYER: PlayerState = {
@@ -293,9 +291,4 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     return false;
   },
-
-  completeTutorial: () => {
-    TutorialManager.setComplete();
-    set({ screen: 'lobby' });
-  }
 }));

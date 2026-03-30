@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { connectSocket } from '@/lib/socket';
 import { PART_UPGRADES, SELL_PERCENT, PartCategory, PartInfo } from '@/lib/partData';
+import type { PlayerCustomization } from '@/lib/multiplayer';
 
 const NEON_COLORS = [
   { name: 'NONE', value: null, cost: 0 },
@@ -26,7 +27,7 @@ export default function GaragePanel({ onClose }: { onClose: () => void }) {
     hydroTokens, inventory, purchasePart, sellPart, purchaseVisual 
   } = useGameStore();
 
-  const [staged, setStaged] = useState({ ...(playerCustomization || {}) });
+  const [staged, setStaged] = useState<PlayerCustomization>({ ...playerCustomization });
 
   const totalCost = useMemo(() => {
     let cost = 0;
@@ -62,7 +63,7 @@ export default function GaragePanel({ onClose }: { onClose: () => void }) {
     });
 
     // 3. Commit customization
-    setPlayerCustomization?.(staged);
+    setPlayerCustomization(staged);
     if (isOnline) {
       const socket = connectSocket();
       socket?.emit('room:update_customization', staged);

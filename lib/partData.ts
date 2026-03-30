@@ -1,4 +1,4 @@
-export type PartCategory = 'engine' | 'rudder' | 'hull' | 'hullColor' | 'neonColor';
+export type PartCategory = 'engine' | 'rudder' | 'hull';
 
 export interface PartInfo {
   level: number;

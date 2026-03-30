@@ -1,7 +1,11 @@
 import { create } from 'zustand';
-import type { RemotePlayerState, PlayerCustomization } from '@/lib/multiplayer';
+import type { RemotePlayerState, PlayerCustomization, PlayerInventory } from '@/lib/multiplayer';
+import { TokenManager } from '@/lib/tokenManager';
+import { InventoryManager } from '@/lib/inventoryManager';
+import { TutorialManager } from '@/lib/tutorialManager';
+import { PART_UPGRADES, SELL_PERCENT, PartCategory } from '@/lib/partData';
 
-export type Screen = 'lobby' | 'game';
+export type Screen = 'tutorial' | 'lobby' | 'game';
 export type GameMode = 'FFA' | 'TDM' | 'LBS';
 export type Difficulty = 'CADET' | 'VETERAN' | 'ACE';
 export type BotCount = 0 | 3 | 5 | 7;
@@ -52,6 +56,8 @@ export interface GameState {
   playerName: string;
   remotePlayers: Record<string, RemotePlayerState>;
   playerCustomization: PlayerCustomization;
+  inventory: PlayerInventory;
+  hydroTokens: number;
 
   // actions
   setScreen: (s: Screen) => void;
@@ -75,6 +81,12 @@ export interface GameState {
   removeRemotePlayer: (id: string) => void;
   clearRemotePlayers: () => void;
   setPlayerCustomization: (p: PlayerCustomization) => void;
+  addHydroTokens: (amount: number) => void;
+  spendHydroTokens: (amount: number) => boolean;
+  purchasePart: (category: PartCategory, level: number) => void;
+  sellPart: (category: PartCategory, level: number) => void;
+  purchaseVisual: (type: 'hull' | 'neon', value: number | null, cost: number) => boolean;
+  completeTutorial: () => void;
 }
 
 const DEFAULT_PLAYER: PlayerState = {
@@ -84,7 +96,7 @@ const DEFAULT_PLAYER: PlayerState = {
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
-  screen: 'lobby',
+  screen: 'lobby', // Default to lobby to prevent SSR mismatches
   settings: {
     mode: 'FFA',
     difficulty: 'VETERAN',
@@ -113,6 +125,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     glowIntensity: 0,
     partUpgrades: { engine: 0, rudder: 0, hull: 0 },
   },
+  inventory: { 
+    engine: [0], rudder: [0], hull: [0], 
+    hullColors: [0x0066cc], neonColors: [null] 
+  },
+  hydroTokens: 0,
 
   // ── Actions ──────────────────────────────────────────────
   setScreen: (screen) => set({ screen }),
@@ -212,4 +229,73 @@ export const useGameStore = create<GameState>((set, get) => ({
   clearRemotePlayers: () => set({ remotePlayers: {} }),
 
   setPlayerCustomization: (p) => set({ playerCustomization: p }),
+
+  addHydroTokens: (amount) => set((state) => {
+    const nextBalance = state.hydroTokens + amount;
+    TokenManager.saveBalance(nextBalance);
+    return { hydroTokens: nextBalance };
+  }),
+
+  spendHydroTokens: (amount) => {
+    const current = get().hydroTokens;
+    if (current < amount) return false;
+    const nextBalance = current - amount;
+    TokenManager.saveBalance(nextBalance);
+    set({ hydroTokens: nextBalance });
+    return true;
+  },
+
+  purchasePart: (category, level) => {
+    const info = PART_UPGRADES[category].find(p => p.level === level);
+    if (!info) return;
+    const { hydroTokens, inventory, spendHydroTokens } = get();
+    if (inventory[category].includes(level)) return;
+    
+    if (spendHydroTokens(info.cost)) {
+      const nextInv = { ...inventory, [category]: [...inventory[category], level] };
+      InventoryManager.save(nextInv);
+      set({ inventory: nextInv });
+    }
+  },
+
+  sellPart: (category, level) => {
+    if (level === 0) return; // Cannot sell stock
+    const info = PART_UPGRADES[category].find(p => p.level === level);
+    if (!info) return;
+    const { inventory, playerCustomization, setPlayerCustomization, addHydroTokens } = get();
+    if (!inventory[category].includes(level)) return;
+
+    const nextInv = { ...inventory, [category]: inventory[category].filter(l => l !== level) };
+    
+    // Revert to stock if selling the currently equipped part
+    if (playerCustomization.partUpgrades[category] === level) {
+      setPlayerCustomization({
+        ...playerCustomization,
+        partUpgrades: { ...playerCustomization.partUpgrades, [category]: 0 }
+      });
+    }
+
+    InventoryManager.save(nextInv);
+    addHydroTokens(Math.floor(info.cost * SELL_PERCENT));
+    set({ inventory: nextInv });
+  },
+
+  purchaseVisual: (type, value, cost) => {
+    const { inventory, spendHydroTokens } = get();
+    const key = type === 'hull' ? 'hullColors' : 'neonColors';
+    if (inventory[key].includes(value as any)) return true;
+
+    if (spendHydroTokens(cost)) {
+      const nextInv = { ...inventory, [key]: [...inventory[key], value] };
+      InventoryManager.save(nextInv);
+      set({ inventory: nextInv });
+      return true;
+    }
+    return false;
+  },
+
+  completeTutorial: () => {
+    TutorialManager.setComplete();
+    set({ screen: 'lobby' });
+  }
 }));

@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/gameStore';
 import { ScoreManager, PlayerScore } from '@/lib/scoreManager';
 
@@ -61,9 +61,19 @@ function TeamTable({ players, teamColor, teamLabel }: { players: PlayerScore[]; 
 }
 
 export default function EndScreen({ winner, winnerColor, onRematch, onLobby }: EndScreenProps) {
-  const { settings } = useGameStore();
+  const { settings, matchTimer, addHydroTokens } = useGameStore();
   const sorted = ScoreManager.getSorted();
   const isTDM = settings.mode === 'TDM';
+
+  const rewardsProcessed = useRef(false);
+  const rewards = ScoreManager.calculateRewards('player', settings.timeLimit - matchTimer);
+
+  useEffect(() => {
+    if (!rewardsProcessed.current) {
+      addHydroTokens(rewards.hydroTokens);
+      rewardsProcessed.current = true;
+    }
+  }, [addHydroTokens, rewards.hydroTokens]);
 
   const redPlayers  = sorted.filter((p) => p.team === 'red');
   const bluePlayers = sorted.filter((p) => p.team === 'blue');
@@ -88,6 +98,27 @@ export default function EndScreen({ winner, winnerColor, onRematch, onLobby }: E
         marginBottom: 4, textAlign: 'center',
       }}>
         {winner}
+      </div>
+
+      {/* Rewards Section */}
+      <div style={{
+        display: 'flex', gap: 20, marginBottom: 28,
+        background: 'rgba(255,204,0,0.05)', border: '1px solid rgba(255,204,0,0.2)',
+        padding: '12px 24px', borderRadius: 4, textAlign: 'center'
+      }}>
+        <div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 4 }}>REWARD</div>
+          <div style={{ fontFamily: "'Rajdhani'", fontSize: 20, fontWeight: 700, color: '#ffcc00' }}>
+            +{rewards.hydroTokens} <span style={{ fontSize: 10 }}>HYDRO-TOKENS</span>
+          </div>
+        </div>
+        <div style={{ width: 1, background: 'rgba(255,255,255,0.1)' }} />
+        <div>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: 2, marginBottom: 4 }}>PROGRESS</div>
+          <div style={{ fontFamily: "'Rajdhani'", fontSize: 20, fontWeight: 700, color: '#44ee88' }}>
+            +{rewards.xp} <span style={{ fontSize: 10 }}>XP</span>
+          </div>
+        </div>
       </div>
 
       <div style={{ fontSize: 'clamp(7px, 1vw, 9px)', letterSpacing: 4, color: 'rgba(255,255,255,0.2)', marginBottom: 'clamp(14px, 2.5vw, 28px)' }}>

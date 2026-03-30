@@ -93,7 +93,7 @@ export const NPC_DEFS: NpcDef[] = [
     label: 'HYDRO-GARAGE',
     subtitle: 'UPGRADES & STYLE',
     greeting: [
-      'Looking to spend some Scrap, captain?',
+      'Looking to spend some Hydro-tokens, captain?',
       'We can make her faster. Much faster.',
       'Style is just as important as speed.',
       'Time for some fresh neon and a turbo tune?',

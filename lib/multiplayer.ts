@@ -13,6 +13,14 @@ export interface PlayerCustomization {
   };
 }
 
+export interface PlayerInventory {
+  engine: number[]; // Array of owned levels, e.g., [0, 1]
+  rudder: number[];
+  hull: number[];
+  hullColors: number[];      // Owned hex values
+  neonColors: (number | null)[]; // Owned hex values
+}
+
 export interface RemotePlayerState {
   id: string;
   name: string;

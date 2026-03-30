@@ -48,16 +48,16 @@ class ScoreManagerClass {
     return Object.values(this.players).sort((a, b) => b.score - a.score);
   }
 
-  calculateRewards(id: PlayerId, matchTimeSeconds: number): { scrap: number, xp: number } {
+  calculateRewards(id: PlayerId, matchTimeSeconds: number): { hydroTokens: number, xp: number } {
     const p = this.players[id];
-    if (!p) return { scrap: 0, xp: 0 };
+    if (!p) return { hydroTokens: 0, xp: 0 };
 
-    const killScrap = p.kills * 75;
-    const styleScrap = Math.floor(p.stylePoints * 0.5);
+    const killTokens = p.kills * 75;
+    const styleTokens = Math.floor(p.stylePoints * 0.5);
     const timeXP = Math.floor(matchTimeSeconds * 2.5);
     
     return { 
-      scrap: killScrap + styleScrap, 
+      hydroTokens: killTokens + styleTokens, 
       xp: (p.kills * 100) + timeXP 
     };
   }

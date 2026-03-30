@@ -5,23 +5,34 @@ import { NPC_DEFS, NpcDef } from './NpcBoats';
 import type { GameMode } from '@/store/gameStore';
 import OnlinePanel from './OnlinePanel';
 import GaragePanel from './GaragePanel';
+import InventoryPanel from './InventoryPanel';
 
 interface LobbyHUDProps {
   nearNpcId: string | null;
 }
 
 export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
-  const { setSettings, startMatch, settings } = useGameStore();
+  const { setSettings, startMatch, settings, hydroTokens } = useGameStore();
   const [dialogueIdx, setDialogueIdx] = useState(0);
   const [showPanel, setShowPanel] = useState(false);
   const [showOnline, setShowOnline] = useState(false);
   const [showGarage, setShowGarage] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
   const [typedText, setTypedText] = useState('');
   const prevNpcId = useRef<string | null>(null);
   const typeTimer = useRef<NodeJS.Timeout | null>(null);
 
   const npc = nearNpcId ? NPC_DEFS.find((n) => n.id === nearNpcId) : null;
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'KeyI') {
+        setShowInventory(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // When NPC changes, type out dialogue
   useEffect(() => {
@@ -71,6 +82,7 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
     <>
       {showOnline && <OnlinePanel onClose={() => setShowOnline(false)} />}
       {showGarage && <GaragePanel onClose={() => setShowGarage(false)} />}
+      {showInventory && <InventoryPanel onClose={() => setShowInventory(false)} />}
 
       {/* Bottom controls hint */}
       <div style={{
@@ -209,6 +221,34 @@ export default function LobbyHUD({ nearNpcId }: LobbyHUDProps) {
 
       </div>
 
+      {/* Persistent Wallet & Inventory Access */}
+      <div style={{
+        position: 'fixed', top: 24, right: 32,
+        display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end', zIndex: 500
+      }}>
+        <div style={{
+          background: 'rgba(0,8,20,0.85)', border: '1px solid #ffcc0044',
+          padding: '10px 20px', textAlign: 'right',
+          clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+          boxShadow: '0 0 20px rgba(0,0,0,0.5)',
+        }}>
+          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', letterSpacing: 3, marginBottom: 2 }}>WALLET</div>
+          <div style={{ fontFamily: "'Share Tech Mono'", fontSize: 18, color: '#ffcc00', textShadow: '0 0 10px rgba(255,204,0,0.3)' }}>
+            {hydroTokens?.toLocaleString() ?? 0} <span style={{ fontSize: 10 }}>HT</span>
+          </div>
+        </div>
+
+        <button 
+          onClick={() => setShowInventory(true)}
+          style={{
+            background: 'rgba(0,200,255,0.1)', border: '1px solid rgba(0,200,255,0.3)',
+            color: 'var(--cyan)', padding: '6px 14px', fontSize: 10, cursor: 'pointer',
+            fontFamily: "'Share Tech Mono'", letterSpacing: 2
+          }}
+        >
+          INVENTORY [I]
+        </button>
+      </div>
     </>
   );
 }

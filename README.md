@@ -67,9 +67,14 @@ hydroverse/
 │   ├── projectiles.ts      # Projectile physics and collision
 │   ├── scoreManager.ts     # Score tracking
 │   ├── sfx.ts              # Sound effects
-│   └── weapons.ts          # Weapon definitions
-└── store/
-    └── gameStore.ts        # Zustand global state
+│   ├── weapons.ts          # Weapon definitions
+│   ├── socket.ts           # Socket.IO client singleton
+│   └── multiplayer.ts      # Shared multiplayer type definitions
+├── components/game/
+│   └── RemotePlayer.tsx    # Networked remote player (interpolation)
+├── store/
+│   └── gameStore.ts        # Zustand global state (incl. multiplayer)
+└── server.js               # Custom Node.js + Socket.IO room server
 ```
 
 ## Shaders
@@ -102,6 +107,68 @@ Procedural GLSL sky dome rendered on a sphere with `BackSide` material:
 - **Projectile physics** — collision detection against boats and world geometry
 - **Ripple system** — water ripples spawned by boat wakes and projectile impacts
 - **Match timer** — configurable time limits with kill feed and score tracking
+
+## Multiplayer
+
+Hydroverse runs on a **Socket.IO** transport (WebSocket primary, HTTP polling fallback) with a custom Node.js relay server. The model is **client-authoritative**: each client simulates its own physics and broadcasts state at ~20 Hz; the server validates rooms but does not perform hit detection.
+
+### Architecture
+
+| Component | Role |
+|---|---|
+| [server.js](server.js) | Custom Node + Socket.IO server. In-memory `Map<roomCode, Room>`; relays state and events; 5-minute grace period for empty rooms (reconnect tolerance) |
+| [lib/socket.ts](lib/socket.ts) | Singleton Socket.IO client. `autoConnect: false`, 3 reconnect attempts, env-aware URL resolution |
+| [lib/multiplayer.ts](lib/multiplayer.ts) | Shared TypeScript interfaces (`RemotePlayerState`, `PlayerCustomization`, `PlayerInventory`) |
+| [components/game/RemotePlayer.tsx](components/game/RemotePlayer.tsx) | Renders networked players with interpolation |
+| [components/game/GameScene.tsx](components/game/GameScene.tsx) | Wires socket listeners into the game loop |
+| [store/gameStore.ts](store/gameStore.ts) | Holds `isOnline`, `roomCode`, `remotePlayers`, customization state |
+
+### Rooms & Matchmaking
+
+- 4-character alphanumeric room codes generated server-side on `room:create`
+- No global matchmaker — players share a code to join (`room:join`)
+- Mid-lobby customization (hull color, neon, name) syncs in real time via `room:update_customization`
+- Creator triggers `room:start` → all clients transition to the game scene
+- Match timer is authoritative via `serverElapsed` to prevent end-of-match desync
+
+### Socket Events
+
+| Event | Direction | Payload | Notes |
+|---|---|---|---|
+| `room:create` / `room:join` | Client → Server | code, name, customization | Server returns full player roster |
+| `room:update_customization` | Bidirectional | partial `PlayerCustomization` | Live lobby preview |
+| `room:start` / `room:started` | Creator → All | settings | Switches scene |
+| `game:state` | Client → Server → Others | x, z, ry, health, dead | ~20 Hz; server replies with `serverElapsed` |
+| `game:shoot` | Client → All others | origin, dir, weaponId | Visual-only — no server damage |
+| `game:hit` | Shooter → Victim | toId, damage | Victim applies damage locally |
+| `game:kill` | Victim → All | killerName, victimName | Drives kill feed + score |
+| `game:powerup_collected` | Client → All | powerupId | Removes pickup for everyone |
+
+### Interpolation
+
+Remote players do **not** use prediction or reconciliation. Instead, [components/game/RemotePlayer.tsx](components/game/RemotePlayer.tsx) lerps toward the latest network target each frame:
+
+- Position: `THREE.MathUtils.lerp(current, target, 12 * dt)`
+- Rotation: shortest-path angle wrap before lerp (avoids 360° spins across the ±π seam)
+- A decorative `sin(time)` vertical bob is local-only and not synced
+
+### Configuration
+
+Multiplayer is opt-in via environment variables. With none set in a non-localhost environment, the game runs offline (vs. AI bots only).
+
+| Variable | Scope | Purpose |
+|---|---|---|
+| `NEXT_PUBLIC_SOCKET_URL` | Frontend (build-time) | Production Socket.IO server URL |
+| `ALLOWED_ORIGINS` | Server | Comma-separated CORS allowlist |
+| `PORT` | Server | Listening port (defaults to 3000 locally) |
+
+For local dev, `server.js` serves both Next.js and Socket.IO on the same port. In production the frontend (e.g. Vercel) connects to a separately-hosted server (e.g. Railway, Render, Fly.io).
+
+### Trust Model & Known Limitations
+
+- **Client-authoritative damage**: a malicious client could fake hit reports. Acceptable for a casual arena game; would need server-side validation for ranked play.
+- **No server-side projectile sim**: remote shots are spawned visually from the broadcast origin/direction, so high latency can produce slight visual offset from the actual hit decision.
+- **No lag compensation or rollback**: shots resolve in the shooter's local time.
 
 ## State Management
 

@@ -1,7 +1,7 @@
 'use client';
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 export interface NpcDef {
@@ -112,6 +112,27 @@ export function NpcBoat({ npc, isNear }: NpcBoatProps) {
   const groupRef = useRef<THREE.Group>(null);
   const flagRef = useRef<THREE.Mesh>(null);
 
+  const { scene } = useGLTF('/models/boat.glb');
+  const cloned = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.rotation.y = Math.PI;
+    clone.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        const applyColor = (mat: THREE.Material) => {
+          const c = mat.clone() as THREE.MeshStandardMaterial;
+          c.map = null;
+          c.color.setHex(npc.color);
+          c.needsUpdate = true;
+          return c;
+        };
+        obj.material = Array.isArray(obj.material)
+          ? obj.material.map(applyColor)
+          : applyColor(obj.material);
+      }
+    });
+    return clone;
+  }, [scene, npc.color]);
+
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
     if (groupRef.current) {
@@ -126,31 +147,9 @@ export function NpcBoat({ npc, isNear }: NpcBoatProps) {
   return (
     <group position={npc.position}>
       <group ref={groupRef}>
-        {/* Hull */}
-        <mesh>
-          <boxGeometry args={[2.2, 0.55, 5.5]} />
-          <meshLambertMaterial color={npc.color} />
-        </mesh>
+        <primitive object={cloned} />
 
-        {/* Bow */}
-        <mesh position={[0, 0, -3.8]} rotation={[Math.PI / 2, Math.PI / 4, 0]}>
-          <coneGeometry args={[1.1, 2.2, 4]} />
-          <meshLambertMaterial color={npc.color} />
-        </mesh>
-
-        {/* Cabin */}
-        <mesh position={[0, 0.67, 0.4]}>
-          <boxGeometry args={[1.4, 0.8, 1.8]} />
-          <meshLambertMaterial color={0x0a0a18} />
-        </mesh>
-
-        {/* Engine glow */}
-        <mesh position={[0, 0.1, 2.6]}>
-          <boxGeometry args={[1.2, 0.35, 0.6]} />
-          <meshBasicMaterial color={npc.accentColor} />
-        </mesh>
-
-        {/* Stripe */}
+        {/* Accent stripe overlay */}
         <mesh position={[0, 0.28, 0]}>
           <boxGeometry args={[2.3, 0.1, 5.6]} />
           <meshBasicMaterial color={npc.accentColor} />

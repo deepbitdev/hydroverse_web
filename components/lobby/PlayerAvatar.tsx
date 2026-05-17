@@ -1,6 +1,7 @@
 'use client';
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
+import { useGLTF, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '@/store/gameStore';
 import { NPC_DEFS } from './NpcBoats';
@@ -25,6 +26,29 @@ export default function PlayerAvatar({ onNearNpc, keys }: PlayerAvatarProps) {
   const nearRef = useRef<string | null>(null);
   const { camera } = useThree();
   const { playerCustomization } = useGameStore();
+
+  const accentColor = playerCustomization?.neonColor ?? 0x00e8d8;
+  const { scene } = useGLTF('/models/boat.glb');
+  const texture = useTexture('/textures/Texture_35.png');
+  const cloned = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.rotation.y = Math.PI;
+    clone.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        const applyTexture = (mat: THREE.Material) => {
+          const c = mat.clone() as THREE.MeshStandardMaterial;
+          c.map = texture;
+          c.color.set(0xffffff);
+          c.needsUpdate = true;
+          return c;
+        };
+        obj.material = Array.isArray(obj.material)
+          ? obj.material.map(applyTexture)
+          : applyTexture(obj.material);
+      }
+    });
+    return clone;
+  }, [scene, texture]);
 
   useFrame(({ clock }, dt) => {
     if (!groupRef.current) return;
@@ -73,33 +97,17 @@ export default function PlayerAvatar({ onNearNpc, keys }: PlayerAvatarProps) {
 
   return (
     <group ref={groupRef} position={[0, 0, 20]}>
-      {/* Player boat hull — distinct cyan color */}
-      <mesh>
-        <boxGeometry args={[2.0, 0.5, 4.8]} />
-        <meshLambertMaterial color={playerCustomization?.primaryColor ?? 0x0066cc} />
+      <primitive object={cloned} />
+      {/* Accent stripe overlay */}
+      <mesh position={[0, 0.28, 0]}>
+        <boxGeometry args={[2.3, 0.1, 5.6]} />
+        <meshBasicMaterial color={accentColor} />
       </mesh>
-      <mesh position={[0, 0, -3.3]} rotation={[Math.PI / 2, Math.PI / 4, 0]}>
-        <coneGeometry args={[1.0, 2.0, 4]} />
-        <meshLambertMaterial color={playerCustomization?.primaryColor ?? 0x0066cc} />
-      </mesh>
-      <mesh position={[0, 0.6, 0.3]}>
-        <boxGeometry args={[1.2, 0.7, 1.6]} />
-        <meshLambertMaterial color={0x0a0a20} />
-      </mesh>
-      <mesh position={[0, 0.1, 2.3]}>
-        <boxGeometry args={[1.0, 0.3, 0.5]} />
-        <meshBasicMaterial color={playerCustomization?.neonColor ?? 0x00e8d8} />
-      </mesh>
-      <mesh position={[0, 0.26, 0]}>
-        <boxGeometry args={[2.1, 0.08, 4.9]} />
-        <meshBasicMaterial color={playerCustomization?.neonColor ?? 0x00e8d8} />
-      </mesh>
-
       {/* Player indicator light */}
-      <pointLight 
-        color={playerCustomization?.neonColor ?? 0x00e8d8} 
-        intensity={(playerCustomization?.glowIntensity ?? 0) > 0 ? playerCustomization.glowIntensity : 2} 
-        distance={8} position={[0, -0.5, 0]} 
+      <pointLight
+        color={accentColor}
+        intensity={(playerCustomization?.glowIntensity ?? 0) > 0 ? playerCustomization.glowIntensity : 2}
+        distance={8} position={[0, -0.5, 0]}
       />
     </group>
   );

@@ -1,7 +1,7 @@
 'use client';
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { remotePlayerColor, PlayerCustomization } from '@/lib/multiplayer';
 
@@ -24,9 +24,30 @@ export default function RemotePlayer({ id, x, z, ry, dead, name, customization }
   target.current = { x, z, ry };
 
   const [primary, accent] = remotePlayerColor(id);
-  // Use the remote player's custom neon color if they have one
   const finalAccent = customization?.neonColor ?? accent;
   const glowIntensity = customization?.glowIntensity ?? 1.5;
+  const finalPrimary = customization?.primaryColor ?? primary;
+
+  const { scene } = useGLTF('/models/boat.glb');
+  const cloned = useMemo(() => {
+    const clone = scene.clone(true);
+    clone.rotation.y = Math.PI;
+    clone.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        const applyColor = (mat: THREE.Material) => {
+          const c = mat.clone() as THREE.MeshStandardMaterial;
+          c.map = null;
+          c.color.setHex(finalPrimary);
+          c.needsUpdate = true;
+          return c;
+        };
+        obj.material = Array.isArray(obj.material)
+          ? obj.material.map(applyColor)
+          : applyColor(obj.material);
+      }
+    });
+    return clone;
+  }, [scene, finalPrimary]);
 
   useFrame((_, dt) => {
     const g = groupRef.current;
@@ -48,24 +69,10 @@ export default function RemotePlayer({ id, x, z, ry, dead, name, customization }
 
   return (
     <group ref={groupRef} position={[x, 0.25, z]}>
-      {/* Hull */}
-      <mesh>
-        <boxGeometry args={[2.2, 0.55, 5.2]} />
-        <meshLambertMaterial color={customization?.primaryColor ?? primary} />
-      </mesh>
-      {/* Bow */}
-      <mesh position={[0, 0, -3.6]} rotation={[Math.PI / 2, Math.PI / 4, 0]}>
-        <coneGeometry args={[1.1, 2.2, 4]} />
-        <meshLambertMaterial color={customization?.primaryColor ?? primary} />
-      </mesh>
-      {/* Cabin */}
-      <mesh position={[0, 0.6, 0.3]}>
-        <boxGeometry args={[1.3, 0.75, 1.8]} />
-        <meshLambertMaterial color={0x0a0a20} />
-      </mesh>
-      {/* Accent stripe */}
-      <mesh position={[0, 0.29, 0]}>
-        <boxGeometry args={[2.3, 0.08, 5.3]} />
+      <primitive object={cloned} />
+      {/* Accent stripe overlay */}
+      <mesh position={[0, 0.28, 0]}>
+        <boxGeometry args={[2.3, 0.1, 5.6]} />
         <meshBasicMaterial color={finalAccent} />
       </mesh>
       {/* Point light marker */}

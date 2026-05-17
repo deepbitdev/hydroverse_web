@@ -1,5 +1,70 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { PILLAR_POSITIONS, PILLAR_RADIUS, SAFE_SPAWN_RADIUS_MIN } from './arenaLayout';
+
+// ── Load boat model and texture once, clone per AI boat ──────
+let _boatTemplate: THREE.Group | null = null;
+let _boatTexture: THREE.Texture | null = null;
+if (typeof window !== 'undefined') {
+  new GLTFLoader().load('/models/boat.glb', (gltf) => {
+    _boatTemplate = gltf.scene;
+  });
+  new THREE.TextureLoader().load('/textures/Texture_35.png', (tex) => {
+    _boatTexture = tex;
+  });
+}
+
+function buildBoatMesh(primary: number, accent: number): THREE.Group {
+  if (_boatTemplate) {
+    const clone = _boatTemplate.clone(true);
+    clone.rotation.y = Math.PI;
+    clone.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) {
+        const applyMat = (mat: THREE.Material) => {
+          const c = mat.clone() as THREE.MeshStandardMaterial;
+          if (_boatTexture) {
+            c.map = _boatTexture;
+            c.color.set(0xffffff);
+          } else {
+            c.map = null;
+            c.color.setHex(primary);
+          }
+          c.needsUpdate = true;
+          return c;
+        };
+        obj.material = Array.isArray(obj.material)
+          ? obj.material.map(applyMat)
+          : applyMat(obj.material as THREE.Material);
+      }
+    });
+    // Engine glow overlay
+    const em = new THREE.MeshBasicMaterial({ color: accent });
+    const eng = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.35, 0.6), em);
+    eng.position.set(0, 0.1, 2.6);
+    clone.add(eng);
+    // Wrap in outer group so AI rotation control doesn't override the PI flip
+    const wrapper = new THREE.Group();
+    wrapper.add(clone);
+    return wrapper;
+  }
+
+  // Fallback: procedural geometry
+  const group = new THREE.Group();
+  const hm = new THREE.MeshLambertMaterial({ color: primary });
+  const em = new THREE.MeshBasicMaterial({ color: accent });
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.55, 5.5), hm);
+  group.add(hull);
+  const bow = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2.2, 4), hm);
+  bow.rotation.x = Math.PI / 2; bow.rotation.y = Math.PI / 4;
+  bow.position.set(0, 0, -3.8); group.add(bow);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 1.8), new THREE.MeshLambertMaterial({ color: 0x0a0a14 }));
+  cabin.position.set(0, 0.67, 0.4); group.add(cabin);
+  const eng = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.35, 0.6), em);
+  eng.position.set(0, 0.1, 2.6); group.add(eng);
+  const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.1, 5.6), em);
+  stripe.position.y = 0.28; group.add(stripe);
+  return group;
+}
 
 export interface AIBoat {
   id: string;
@@ -54,21 +119,7 @@ export function createAIBoat(
   accent: number,
   team?: 'red' | 'blue'
 ): AIBoat {
-  const group = new THREE.Group();
-  const hm = new THREE.MeshLambertMaterial({ color: primary });
-  const em = new THREE.MeshBasicMaterial({ color: accent });
-
-  const hull = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.55, 5.5), hm);
-  group.add(hull);
-  const bow = new THREE.Mesh(new THREE.ConeGeometry(1.1, 2.2, 4), hm);
-  bow.rotation.x = Math.PI / 2; bow.rotation.y = Math.PI / 4;
-  bow.position.set(0, 0, -3.8); group.add(bow);
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 1.8), new THREE.MeshLambertMaterial({ color: 0x0a0a14 }));
-  cabin.position.set(0, 0.67, 0.4); group.add(cabin);
-  const eng = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.35, 0.6), em);
-  eng.position.set(0, 0.1, 2.6); group.add(eng);
-  const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.1, 5.6), em);
-  stripe.position.y = 0.28; group.add(stripe);
+  const group = buildBoatMesh(primary, accent);
 
   const spawnPt = randomPatrolPoint();
   group.position.copy(spawnPt);
